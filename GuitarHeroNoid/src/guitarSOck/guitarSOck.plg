@@ -1,0 +1,34 @@
+<html>
+<body>
+<pre>
+<h1>Build Log</h1>
+<h3>
+--------------------Configuration: guitarSOck - Win32 Debug--------------------
+</h3>
+<h3>Command Lines</h3>
+Creating temporary file "C:\DOCUME~1\IBM\LOCALS~1\Temp\RSP1B.tmp" with contents
+[
+/nologo /MDd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /D "_AFXDLL" /Fp"Debug/guitarSOck.pch" /Yu"stdafx.h" /Fo"Debug/" /Fd"Debug/" /FD /GZ /c 
+"C:\My Dir\Project\guitar hero\GH\VC\guitarSOck\guitarSOck.cpp"
+]
+Creating command line "cl.exe @C:\DOCUME~1\IBM\LOCALS~1\Temp\RSP1B.tmp" 
+Creating temporary file "C:\DOCUME~1\IBM\LOCALS~1\Temp\RSP1C.tmp" with contents
+[
+kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib ws2_32.lib inpout32.lib /nologo /subsystem:console /incremental:yes /pdb:"Debug/guitarSOck.pdb" /debug /machine:I386 /out:"Debug/guitarSOck.exe" /pdbtype:sept 
+".\Debug\guitarSOck.obj"
+".\Debug\StdAfx.obj"
+".\Debug\guitarSOck.res"
+]
+Creating command line "link.exe @C:\DOCUME~1\IBM\LOCALS~1\Temp\RSP1C.tmp"
+<h3>Output Window</h3>
+Compiling...
+guitarSOck.cpp
+Linking...
+
+
+
+<h3>Results</h3>
+guitarSOck.exe - 0 error(s), 0 warning(s)
+</pre>
+</body>
+</html>

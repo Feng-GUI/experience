@@ -1,0 +1,15 @@
+;===========================================================================
+;  GarageGeeks 2006-2007.
+; Author: Rafael Mizrahi
+; http://www.garagegeeks.org
+;===========================================================================
+
+LIBRARY     GuitarHero.ax
+
+EXPORTS
+            DllMain                 PRIVATE
+            DllGetClassObject       PRIVATE
+            DllCanUnloadNow         PRIVATE
+            DllRegisterServer       PRIVATE
+            DllUnregisterServer     PRIVATE
+

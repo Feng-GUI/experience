@@ -1,0 +1,29 @@
+Microsoft Visual Studio Solution File, Format Version 8.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GuitarHero", "dxfilter\GuitarHero.vcproj", "{E0FCDEB2-0EB5-42F6-B80D-B92C5CE8F77C}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "guitarSOck", "guitarSOck\guitarSOck.vcproj", "{2FFF3E9C-697F-42A1-9946-881D47A362CD}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfiguration) = preSolution
+		Debug = Debug
+		Release = Release
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{E0FCDEB2-0EB5-42F6-B80D-B92C5CE8F77C}.Debug.ActiveCfg = Debug|Win32
+		{E0FCDEB2-0EB5-42F6-B80D-B92C5CE8F77C}.Debug.Build.0 = Debug|Win32
+		{E0FCDEB2-0EB5-42F6-B80D-B92C5CE8F77C}.Release.ActiveCfg = Release|Win32
+		{E0FCDEB2-0EB5-42F6-B80D-B92C5CE8F77C}.Release.Build.0 = Release|Win32
+		{2FFF3E9C-697F-42A1-9946-881D47A362CD}.Debug.ActiveCfg = Debug|Win32
+		{2FFF3E9C-697F-42A1-9946-881D47A362CD}.Debug.Build.0 = Debug|Win32
+		{2FFF3E9C-697F-42A1-9946-881D47A362CD}.Release.ActiveCfg = Release|Win32
+		{2FFF3E9C-697F-42A1-9946-881D47A362CD}.Release.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,8 @@
+watch input:
+
+# mplayer tv:// -tv driver=v4l2:input=0:device=/dev/video0:norm=ntsc
+
+encode:
+
+# mencoder tv:// -tv driver=v4l2:input=0:device=/dev/video0:norm=ntsc width=640:height=480 -o output -oac pcm -ovc lavc
+
