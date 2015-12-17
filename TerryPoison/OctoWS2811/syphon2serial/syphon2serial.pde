@@ -126,7 +126,7 @@ void setup() {
   background(0);
   
   // **** shoudld Syphon really be started in the setup()? Starting here because myMovie.loop was called in setup.
-  if (MyClient.available()) //*** disabled to run once
+  if (MyClient.newFrame()) //*** disabled to run once
   {
    canvas = MyClient.getGraphics(canvas);
    image(canvas, 0, 0, width, height);    
@@ -143,15 +143,17 @@ void syphonEvent()
   
   //if (verbose) println("syphonEvent start ");
   /*
-  if (MyClient.available()) {
+  if (MyClient.newFrame()) {
     canvas = MyClient.getGraphics(canvas);
     image(canvas, 0, 0, width, height);     
   }
   */
-  
+
+  // syphon doesn't seem to declare framerate  
   //if (framerate == 0) framerate = m.getSourceFrameRate();
-  //*** ignoring frame rate for now - changed to a hard 24  as syphon doesn't seem to declare framerate
- framerate = 24.0; // TODO, how to read the frame rate???
+  // TODO, how to read the frame rate?
+  // changed framerate from 24 to 60, to decrease latency.
+  framerate = 60.0; 
  
   /// ***** CHANGED m.XXX to 'canvas' (set above to the MyClient object created by syphon) ********
   for (int i=0; i < numPorts; i++) {    
@@ -352,7 +354,7 @@ void draw() {
   //image(canvas, 0, 80);
   
   //get syphon frame
-  if (MyClient.available()) {
+  if (MyClient.newFrame()) {
     canvas = MyClient.getGraphics(canvas);
     image(canvas, 0, 0, width, height);  
   }
