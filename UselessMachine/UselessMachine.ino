@@ -1,4 +1,16 @@
+////////////////////////////////////////////
+//
+// UselessMachine HAL9000
+//
+// Arduino Uno + Music Shield
+// 2 Servos, WS2812 Leds, Microphone
+//
+//
 
+////////////////////////////////////////////
+//
+// music playback
+//
 // Music Shield VS1053 Codec Breakout: Pins 6, 7, 8, 9 and the 6 analog in pins 
 // (also known as digital i/o pins 14-20) are available.
 
@@ -6,23 +18,17 @@
 #include <SPI.h>
 #include <Adafruit_VS1053.h>
 #include <SD.h>
-#include <Adafruit_NeoPixel.h>
 
-
-////////////////////////////////////////////
-//
-// music playback
-//
 boolean stopPlayback = false;
 // These are the pins used for the music maker shield
 //#define SHIELD_RESET_PIN  -1   // VS1053 reset pin (unused!)
-#define SHIELD_CS_PIN     7      // VS1053 chip select pin (output)
-#define SHIELD_DCS_PIN    6      // VS1053 Data/command select pin (output)
+#define SHIELD_CS_PIN       7    // VS1053 chip select pin (output)
+#define SHIELD_DCS_PIN      6    // VS1053 Data/command select pin (output)
 
 // These are common pins between breakout and shield
-#define CARDCS_PIN 4     // Card chip select pin
+#define CARDCS_PIN   4     // Card chip select pin
 // DREQ should be an Int pin, see http://arduino.cc/en/Reference/attachInterrupt
-#define DREQ_PIN 3       // VS1053 Data request, ideally an Interrupt pin
+#define DREQ_PIN     3     // VS1053 Data request, ideally an Interrupt pin
 
 Adafruit_VS1053_FilePlayer musicPlayer = 
   // create breakout-example object!
@@ -38,9 +44,35 @@ char* myFILESs[]={
 //
 // WS281x Leds
 //
-#define LEDS_DATA_PIN 3
+#include <Adafruit_NeoPixel.h>
+#define LEDS_DATA_PIN 8
 #define NUMBER_OF_LEDS 20
+// Parameter 1 = number of pixels in strip
+// Parameter 2 = pin number (most are valid)
+// Parameter 3 = pixel type flags, add together as needed:
+//   NEO_KHZ800  800 KHz bitstream (most NeoPixel products w/WS2812 LEDs)
+//   NEO_KHZ400  400 KHz (classic 'v1' (not v2) FLORA pixels, WS2811 drivers)
+//   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
+//   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMBER_OF_LEDS, LEDS_DATA_PIN, NEO_GRB + NEO_KHZ800);
+
+////////////////////////////////////////////
+//
+// Microphone breakout
+// Connect AUD to analog input pin
+// Connect VCC to 3.3V (3.3V yields the best results)
+//
+#define MICROPHONE_PIN    9
+
+////////////////////////////////////////////
+//
+// Servos
+//
+#include <Servo.h>
+Servo servoDoor;
+Servo servoHand;
+#define SERVO_DOOR_PIN    10
+#define SERVO_HAND_PIN    11
 
 void setup() {
   Serial.begin(9600);
@@ -50,9 +82,13 @@ void setup() {
 
   // init music player
   musicShieldSetup();
+
   // init leds
   ledsSetup();
 
+  // init servos
+  servosSetup();
+  
   // Play one file, don't return until complete
   /*
   Serial.println(F("setup play file"));
@@ -79,6 +115,20 @@ void loop()
 
 void ledsSetup() {
   strip.begin();
+  
+  // color all leds as red
+  for(uint16_t i=0; i<strip.numPixels(); i++) {
+    strip.setPixelColor(i , strip.Color(255, 0, 0));
+  }
+  strip.show();
+}
+
+void servosSetup() {
+  servoDoor.attach(SERVO_DOOR_PIN);
+  servoHand.attach(SERVO_HAND_PIN);
+  
+  servoDoor.write(0);
+  servoHand.write(0);
 }
 
 void musicShieldSetup() {
@@ -116,7 +166,13 @@ void musicShieldSetup() {
 
 void ledsLoop() {
 
+  // read microphone 
+  unsigned int micAmplitude = analogRead(MICROPHONE_PIN);
+  //TEST: print micAmplitude to serial
+  
   //TODO: change leds brightness based on microphone input
+  //TODO: scale micAmplitude from 0-1024 to brightness level 600-1024
+  //setBrightness(uint8_t);
 }
 
 void musicLoop()
@@ -144,6 +200,10 @@ void musicLoop()
     }
   }
     
+}
+
+void servosLoop() {
+ //servoDoor.write(position); 
 }
 
 uint16_t freeMem() {
