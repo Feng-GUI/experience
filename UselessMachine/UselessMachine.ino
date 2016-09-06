@@ -44,6 +44,7 @@ char* myFILESs[]={
 //
 // WS281x Leds
 //
+/* replaced with TV Out
 #include <Adafruit_NeoPixel.h>
 #define LEDS_DATA_PIN 8
 #define NUMBER_OF_LEDS 20
@@ -55,6 +56,14 @@ char* myFILESs[]={
 //   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMBER_OF_LEDS, LEDS_DATA_PIN, NEO_GRB + NEO_KHZ800);
+*/
+
+////////////////////////////////////////////
+//
+// TV Out
+//
+#include <TVout.h>
+TVout TV;
 
 ////////////////////////////////////////////
 //
@@ -62,7 +71,7 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUMBER_OF_LEDS, LEDS_DATA_PIN, NEO_G
 // Connect AUD to analog input pin
 // Connect VCC to 3.3V (3.3V yields the best results)
 //
-#define MICROPHONE_PIN    9
+#define MICROPHONE_PIN    0
 
 ////////////////////////////////////////////
 //
@@ -84,8 +93,11 @@ void setup() {
   musicShieldSetup();
 
   // init leds
-  ledsSetup();
-
+  //ledsSetup();
+  
+  // init TV
+  tvSetup();
+  
   // init servos
   servosSetup();
   
@@ -107,12 +119,13 @@ void loop()
   // play random samples
   musicLoop();
   
-  // change leds brightness based on microphone input
-  ledsLoop();
+  // set and change red light brightness based on microphone input
+  microphoneLoop();
   
   //TODO: servos logic
 }
 
+/* 
 void ledsSetup() {
   strip.begin();
   
@@ -121,6 +134,11 @@ void ledsSetup() {
     strip.setPixelColor(i , strip.Color(255, 0, 0));
   }
   strip.show();
+}
+*/
+
+void tvSetup() {
+  TV.begin(PAL,120,96);
 }
 
 void servosSetup() {
@@ -164,7 +182,7 @@ void musicShieldSetup() {
   musicPlayer.GPIO_pinMode(2, INPUT);
 }
 
-void ledsLoop() {
+void microphoneLoop() {
 
   // read microphone 
   unsigned int micAmplitude = analogRead(MICROPHONE_PIN);
@@ -173,6 +191,11 @@ void ledsLoop() {
   //TODO: change leds brightness based on microphone input
   //TODO: scale micAmplitude from 0-1024 to brightness level 600-1024
   //setBrightness(uint8_t);
+  
+  TV.clear_screen();
+  uint8_t radius = TV.vres()/3; // default circle radius
+  TV.draw_circle(TV.hres()/2, TV.vres()/2, TV.vres()/radius, WHITE);
+  
 }
 
 void musicLoop()
