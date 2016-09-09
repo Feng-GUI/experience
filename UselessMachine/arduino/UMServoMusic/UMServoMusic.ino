@@ -124,7 +124,7 @@ void musicShieldSetup() {
   //printDirectory(SD.open("/"), 0);
   
   // Set volume for left, right channels. lower numbers == louder volume!
-  musicPlayer.setVolume(80,80); // used to be 20,20
+  musicPlayer.setVolume(30,30); // used to be 20,20
 
   // Timer interrupts are not suggested, better to use DREQ interrupt!
   //musicPlayer.useInterrupt(VS1053_FILEPLAYER_TIMER0_INT); // timer int
