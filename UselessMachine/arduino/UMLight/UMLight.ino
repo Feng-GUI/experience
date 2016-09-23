@@ -140,7 +140,7 @@ void microphoneLoop() {
   // map(value, fromLow, fromHigh, toLow, toHigh)
   if (micAmplitudeAverage < 300) micAmplitudeAverage = 300;
   if (micAmplitudeAverage > 600) micAmplitudeAverage = 600;
-  uint8_t radius = map (micAmplitudeAverage, 300, 600, 30, 44);
+  uint8_t radius = map (micAmplitudeAverage, 300, 600, 36, 44);
 
   tvFrameRate++;
   if (tvFrameRate > 10) {
