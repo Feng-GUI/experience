@@ -28,6 +28,7 @@
     /// </summary>
     private void InitializeComponent()
     {
+<<<<<<< HEAD
       this.pictureBoxCam = new System.Windows.Forms.PictureBox();
       this.pictureBoxGame = new System.Windows.Forms.PictureBox();
       this.button1 = new System.Windows.Forms.Button();
@@ -116,6 +117,15 @@
     private System.Windows.Forms.Button button1;
     private System.Windows.Forms.Label labelScoreLeft;
     private System.Windows.Forms.Label labelScoreRight;
+=======
+      this.components = new System.ComponentModel.Container();
+      this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+      this.ClientSize = new System.Drawing.Size(800, 450);
+      this.Text = "Form1";
+    }
+
+    #endregion
+>>>>>>> 64c199fd5170305554d1f5683298cd630737e448
   }
 }
 
