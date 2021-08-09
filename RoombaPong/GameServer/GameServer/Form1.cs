@@ -3,41 +3,32 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
-<<<<<<< HEAD
 using System.Drawing.Imaging;
 using System.Threading;
-=======
->>>>>>> 64c199fd5170305554d1f5683298cd630737e448
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-<<<<<<< HEAD
-
 using OpenCvSharp;
 using OpenCvSharp.Extensions;
 
-=======
->>>>>>> 64c199fd5170305554d1f5683298cd630737e448
 namespace GameServer
 {
   public partial class Form1 : Form
   {
-<<<<<<< HEAD
-    // Create class-level accesible variables
+
     VideoCapture capture;
     Mat frame;
     Bitmap image;
-    private Thread camera;
+    Thread cameraThread;
     bool isCameraRunning = false;
 
 
-    // Declare required methods
     private void CaptureCamera()
     {
-        camera = new Thread(new ThreadStart(CaptureCameraCallback));
-        camera.Start();
+        cameraThread = new Thread(new ThreadStart(CaptureCameraCallback));
+        cameraThread.Start();
     }
 
     private void CaptureCameraCallback()
@@ -64,18 +55,16 @@ namespace GameServer
     }
 
 
-=======
->>>>>>> 64c199fd5170305554d1f5683298cd630737e448
     public Form1()
     {
       InitializeComponent();
     }
-<<<<<<< HEAD
 
     private void Form1_Load(object sender, EventArgs e)
     {
 
     }
+
 
     // When the user clicks on the start/stop button, start or release the camera and setup flags
     private void button1_Click(object sender, EventArgs e)
@@ -98,7 +87,15 @@ namespace GameServer
     {
 
     }
-=======
->>>>>>> 64c199fd5170305554d1f5683298cd630737e448
+
+    private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+    {
+      //close threads
+      //cameraThread.Abort();
+      //capture.Release();
+
+      //exit application
+       Environment.Exit(0);
+    }
   }
 }
