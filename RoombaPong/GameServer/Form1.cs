@@ -1,19 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Threading;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-
-using OpenCvSharp;
-using OpenCvSharp.Extensions;
-
+﻿using OpenCvSharp;
 using OpenCvSharp.Aruco;
+using OpenCvSharp.Extensions;
+using System;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Linq;
+using System.Net.Sockets;
+using System.Threading;
+using System.Windows.Forms;
+using System.IO.Ports;
 
 namespace GameServer
 {
@@ -25,12 +20,13 @@ namespace GameServer
     Mat frame;
     Bitmap image;
     Thread cameraThread;
-    bool isCameraRunning = false;
 
-    Dictionary dictionary = CvAruco.GetPredefinedDictionary(PredefinedDictionaryName.Dict6X6_250);
+    SerialPort serialPort = null;
+
+    Dictionary dictionary = CvAruco.GetPredefinedDictionary(PredefinedDictionaryName.Dict4X4_250);
     DetectorParameters parameters = DetectorParameters.Create();
 
-    // calibration
+    // camera calibration
     Mat cameraMatrix = new Mat(new OpenCvSharp.Size(3, 3), MatType.CV_32F, 1);
     Mat distCoeffs = new Mat(1, 8, MatType.CV_32F, 1);
 
@@ -38,6 +34,19 @@ namespace GameServer
     {
       cameraThread = new Thread(new ThreadStart(CaptureCameraCallback));
       cameraThread.Start();
+    }
+
+    private void ReleaseCamera()
+    {
+      if (cameraThread != null) cameraThread.Abort();
+      if (capture != null) capture.Release();
+    }
+
+    // camera calibration
+    private void CalibrateCamera()
+    {
+      cameraMatrix = Mat.Eye(3, 3, MatType.CV_64FC1);
+      distCoeffs = Mat.Zeros(4, 1, MatType.CV_64FC1);
     }
 
     private void CaptureCameraCallback()
@@ -53,22 +62,18 @@ namespace GameServer
 
       if (capture.IsOpened())
       {
-        while (isCameraRunning)
+        while (chkLive.Checked)
         {
 
           // read frame from camera
           capture.Read(frameOrig);
+
           // scale down frame
-          Cv2.Resize(frameOrig, frame, new OpenCvSharp.Size(640, 360));
+          Cv2.Resize(frameOrig, frame, new OpenCvSharp.Size(pictureBoxGame.Width, pictureBoxGame.Height)); // 640, 360
 
+          // calibrate camera - de-skew frame
+          frame = OpenWarpPerspective(frame);
 
-          // detect markers
-          //std::vector<int> ids;
-          //std::vector<std::vector<cv::Point2f> > corners;
-          //cv::aruco::detectMarkers(image, dictionary, corners, ids);
-          //using (var undistorted = new Mat())
-          //Cv2.Undistort(image, undistorted, camera, distortion, newCamera);
-          var undistorted = new Mat();
           CvAruco.DetectMarkers(frame, dictionary, out Point2f[][] corners, out int[] ids, parameters, out Point2f[][] rejected);
           if (ids.Any())
           {
@@ -87,13 +92,49 @@ namespace GameServer
 
                 // draw markers pose
                 CvAruco.DrawAxis(frame, cameraMatrix, distCoeffs, rvec, tvec, 0.05f);
-                //CvAruco.DrawAxis(frameBong, cameraMatrix, distCoeffs, rvec, tvec, 0.05f);
+
+                Mat R = new Mat();
+                OpenCvSharp.Cv2.Rodrigues(rvec, R);
+
+                double[,] rvecDouble = new double[3,3];
+                
+                //rvecDouble[0,0]=rvec.Item0;
+                //rvecDouble[0,1]=rvec.Item1;
+                //rvecDouble[0,2]=rvec.Item2;
+
+                rvecDouble[0,0]=R.Get<double>(0,0);
+                rvecDouble[0,1]=R.Get<double>(0,1);
+                rvecDouble[0,2]=R.Get<double>(0,2);
+                rvecDouble[1,0]=R.Get<double>(1,0);
+                rvecDouble[1,1]=R.Get<double>(1,1);
+                rvecDouble[1,2]=R.Get<double>(1,2);
+                rvecDouble[2,0]=R.Get<double>(2,0);
+                rvecDouble[2,1]=R.Get<double>(2,1);
+                rvecDouble[2,2]=R.Get<double>(2,2);
+
+
+                RotationMatrixToEulerZXY(rvecDouble);
+
+                // if this is the roomba Marker id
+                if (ids[i] == 0)
+                {
+                  //Ball.Left = (int)corners[0][0].X;
+                  //Ball.Top = (int)corners[0][0].Y;
+                }
+                // left player Marker id
+                else if (ids[i] == 1)
+                {
+                }
+                // right player Marker id
+                else if (ids[i] == 2)
+                {
+                }
+
               }
             }
 
 
           }
-
 
           // draw frame on picture
           image = BitmapConverter.ToBitmap(frame);
@@ -107,6 +148,36 @@ namespace GameServer
       }
     }
 
+    public void RotationMatrixToEulerZXY(double[,] R)
+    {
+        var i = 2;
+        var j = 0; // EULER_NEXT[2]
+        var k = 1; // EULER_NEXT[3]
+
+        var cos_beta = Math.Sqrt(Math.Pow(R[i, i], 2) + Math.Pow(R[j, i], 2));
+
+        double alpha, beta, gamma;
+        double EULER_EPSILON = 2.71828;
+        if (cos_beta > EULER_EPSILON)
+        {
+            alpha = Math.Atan2(R[k, j], R[k, k]);
+            beta = Math.Atan2(-R[k, i], cos_beta);
+            gamma = Math.Atan2(R[j, i], R[i, i]);
+        }
+        else
+        {
+            alpha = Math.Atan2(-R[j, k], R[j, j]);
+            beta = Math.Atan2(-R[k, i], cos_beta);
+            gamma = 0.0;
+        }
+
+        // Radian To Degree
+        alpha = 180.0 - alpha * (180/Math.PI);
+        beta = beta * (180/Math.PI);
+        gamma = gamma * (180/Math.PI);
+
+        Console.WriteLine(alpha + "," + beta + "," + gamma);
+    }
 
     public Form1()
     {
@@ -116,163 +187,44 @@ namespace GameServer
 
     private void Form1_Load(object sender, EventArgs e)
     {
-
+      labelHelp.Text = "left up Q down A";
+      labelHelp.Text += "\nright up P down L";
     }
 
-
-    // When the user clicks on the start/stop button, start or release the camera and setup flags
-    private void button1_Click(object sender, EventArgs e)
-    {
-      if (button1.Text.Equals("Start"))
-      {
-        CaptureCamera();
-        button1.Text = "Stop";
-        isCameraRunning = true;
-      }
-      else
-      {
-        capture.Release();
-        button1.Text = "Start";
-        isCameraRunning = false;
-      }
-
-    }
 
     private void Form1_FormClosing(object sender, FormClosingEventArgs e)
     {
-      //close threads
-      //cameraThread.Abort();
-      //capture.Release();
+      try
+      {
+        ReleaseCamera();
 
-      //exit application
-      Environment.Exit(0);
+        //exit application
+        Environment.Exit(0);
+
+      }
+      catch (Exception ex)
+      {
+        Console.WriteLine("Exception: {0}", ex);
+        //lblError.Text = e.Message;
+      }
+
     }
 
-
-    /*
-    private async Task DetectMarkers()
-    {
-        string output = @"C:\projects\src\OfirNoy\Geekcon2021\GameServer\output.png";
-        var rms = 0.0;
-        var calib = 100;
-        var size = new OpenCvSharp.Size(9, 6);
-        var frameSize = OpenCvSharp.Size.Zero;
-        var distortion = new Mat();
-        var imgPoints = new List<MatOfPoint2f>();
-        var objPoints = new List<MatOfPoint3f>();
-        var criteria = new TermCriteria(CriteriaType.Eps | CriteriaType.MaxIter, 30, 0.001);
-        var objp = MatOfPoint3f.FromArray(Create3DChessboardCorners(size, 0.025f));
-        using (var capture = new VideoCapture(0))
-        using (var paramters = DetectorParameters.Create())
-        using (var camera = new MatOfDouble(Mat.Eye(3, 3, MatType.CV_64FC1)))
-        using (var dictionary = CvAruco.GetPredefinedDictionary(PredefinedDictionaryName.Dict4X4_50))
-        {
-            while (capture.Grab() && calib > 0)
-            {
-                using (var image = capture.RetrieveMat())
-                using (var gray = new Mat())
-                {
-                    frameSize = image.Size();
-                    Cv2.CvtColor(image, gray, ColorConversionCodes.BGR2GRAY);
-                    if (Cv2.FindChessboardCorners(gray, size, out Point2f[] corners))
-                    {
-                        objPoints.Add(objp);
-                        imgPoints.Add(MatOfPoint2f.FromArray(corners.ToArray()));
-                        var corners2 = Cv2.CornerSubPix(gray, corners, new OpenCvSharp.Size(11, 11), new OpenCvSharp.Size(-1, -1), criteria);
-                        Cv2.DrawChessboardCorners(image, size, corners2, true);
-                        image.SaveImage(output);
-                        calib--;
-                        await Task.Delay(100);
-                    }
-                    image.SaveImage(output);
-                }
-            }
-            rms = Cv2.CalibrateCamera(objPoints, imgPoints, frameSize, camera, distortion, out var rvectors, out var tvectors, CalibrationFlags.UseIntrinsicGuess | CalibrationFlags.FixK5);
-            using (var newCamera = Cv2.GetOptimalNewCameraMatrix(camera, distortion, frameSize, 1, frameSize, out var roi))
-            {
-                await Task.Delay(1);
-                while (capture.Grab())
-                {
-                    using (var undistorted = new Mat())
-                    using (var image = capture.RetrieveMat())
-                    {
-                        Cv2.Undistort(image, undistorted, camera, distortion, newCamera);
-                        CvAruco.DetectMarkers(undistorted, dictionary, out Point2f[][] corners, out int[] ids, paramters, out Point2f[][] rejected);
-                        if (ids.Any())
-                        {
-                            CvAruco.DrawDetectedMarkers(undistorted, corners, ids);
-                            using (var rvecs = new Mat())
-                            using (var tvecs = new Mat())
-                            {
-                                CvAruco.EstimatePoseSingleMarkers(corners, 0.065f, newCamera, distortion, rvecs, tvecs);
-                                for (var i = 0; i < ids.Length; i++)
-                                {
-                                    var rvec = rvecs.Get<Vec3d>(i);
-                                    var tvec = tvecs.Get<Vec3d>(i);
-                                    DrawAxis(undistorted, newCamera, distortion, rvec, tvec, 0.05f);
-                                }
-                            }
-                        }
-                        undistorted.SaveImage(output);
-                    }
-                }
-            }
-        }
-    }
-
-    private static IEnumerable<Point3f> Create3DChessboardCorners(OpenCvSharp.Size boardSize, float squareSize)
-    {
-        for (int y = 0; y < boardSize.Height; y++)
-        {
-            for (int x = 0; x < boardSize.Width; x++)
-            {
-                yield return new Point3f(x * squareSize, y * squareSize, 0);
-            }
-        }
-    }
-*/
-
-    /*
-    private static void DrawAxis(Mat image, InputArray camera, InputArray distortion, Vec3d rvec, Vec3d tvec, float length)
-    {
-        if (image.Total() == 0 || (image.Channels() != 1 && image.Channels() != 3))
-        {
-            throw new ArgumentException(nameof(image));
-        }
-        if (length <= 0)
-        {
-            throw new ArgumentException(nameof(length));
-        }
-        // project axis points
-        var axisPoints = new MatOfPoint3f()
-        {
-            new Point3f(0, 0, 0),
-            new Point3f(length, 0, 0),
-            new Point3f(0, length, 0),
-            new Point3f(0, 0, length),
-        };
-        var imagePoints = new MatOfPoint2f();
-        Cv2.ProjectPoints(axisPoints, InputArray.Create(new[] { rvec }), InputArray.Create(new[] { tvec }), camera, distortion, imagePoints);
-        // draw axis lines
-        //Cv2.Line(image, imagePoints.Get<Point2f>(0), imagePoints.Get<Point2f>(1), new Scalar(0, 0, 255), 3);
-        //Cv2.Line(image, imagePoints.Get<Point2f>(0), imagePoints.Get<Point2f>(2), new Scalar(0, 255, 0), 3);
-        //Cv2.Line(image, imagePoints.Get<Point2f>(0), imagePoints.Get<Point2f>(3), new Scalar(255, 0, 0), 3);
-    }
-    */
 
     const int limit_Pad = 170;
     const int limit_Ball = 245;
     const int x = 227, y = 120;
 
-    int computer_won = 0;
+    int player_right_won = 0;
     int player_won = 0;
 
-    int speed_Top;
-    int speed_Left;
+    int stepTop;
+    int stepLeft;
 
-    bool up = false;
-    bool down = false;
-    bool game = false;
+    bool leftUp = false;
+    bool leftDown = false;
+    bool rightUp = false;
+    bool rightDown = false;
 
     Random r = new Random();
 
@@ -289,81 +241,123 @@ namespace GameServer
       return pictureBoxGame.Left + pictureBoxGame.Width;
     }
 
+    // key pressed event
     private void Pressed(object sender, KeyEventArgs e)
     {
-      if (game)
+
+      // left paddle
+      if (e.KeyCode == Keys.Q)
       {
-        if (e.KeyCode == Keys.Up || e.KeyCode == Keys.W)
-        {
-          up = true;
-        }
-        else if (e.KeyCode == Keys.Down || e.KeyCode == Keys.S)
-        {
-          down = true;
-        }
-        timer1.Start();
+        leftUp = true;
       }
+      else if (e.KeyCode == Keys.A)
+      {
+        leftDown = true;
+      }
+
+      // right paddle
+      if (e.KeyCode == Keys.Up || e.KeyCode == Keys.P)
+      {
+        rightUp = true;
+      }
+      else if (e.KeyCode == Keys.Down || e.KeyCode == Keys.L)
+      {
+        rightDown = true;
+      }
+
+      timerLeftPaddle.Start();
+      timerRightPaddle.Start();
     }
-    private void MovePaddle(object sender, EventArgs e)
-    {
-      if (up && Player.Location.Y > getLimitTop())
-      {
-        Player.Top -= 3;
-      }
-      else if (down && Player.Location.Y < getLimitBottom() - Player.Height)
-      {
-        Player.Top += 3;
-      }
-    }
+
+    // key released event
     private void Released(object sender, KeyEventArgs e)
     {
-      if (e.KeyCode == Keys.Up || e.KeyCode == Keys.W)
+      if (e.KeyCode == Keys.Q)
       {
-        up = false;
+        leftUp = false;
       }
-      else if (e.KeyCode == Keys.Up || e.KeyCode == Keys.S)
+      else if (e.KeyCode == Keys.A)
       {
-        down = false;
+        leftDown = false;
       }
-      timer1.Stop();
+
+      if (e.KeyCode == Keys.Up || e.KeyCode == Keys.P)
+      {
+        rightUp = false;
+      }
+      else if (e.KeyCode == Keys.Up || e.KeyCode == Keys.L)
+      {
+        rightDown = false;
+      }
+
+      timerLeftPaddle.Stop();
+      timerRightPaddle.Stop();
     }
+
+    private void timerLeftPaddle_Tick(object sender, EventArgs e)
+    {
+      if (leftUp && PlayerLeft.Location.Y > getLimitTop())
+      {
+        PlayerLeft.Top -= 3;
+      }
+      else if (leftDown && PlayerLeft.Location.Y < getLimitBottom() - PlayerLeft.Height)
+      {
+        PlayerLeft.Top += 3;
+      }
+    }
+
+    private void timerRightPaddle_Tick(object sender, EventArgs e)
+    {
+      if (rightUp && PlayerRight.Location.Y > getLimitTop())
+      {
+        PlayerRight.Top -= 3;
+      }
+      else if (rightDown && PlayerRight.Location.Y < getLimitBottom() - PlayerRight.Height)
+      {
+        PlayerRight.Top += 3;
+      }
+    }
+
+
+
     private void MoveBall(object sender, EventArgs e)
     {
-      if (Ball.Bounds.IntersectsWith(Player.Bounds))
+      if (Ball.Bounds.IntersectsWith(PlayerLeft.Bounds))
       {
-        Collision(Player);
+        Collision(PlayerLeft);
       }
-      else if (Ball.Bounds.IntersectsWith(PC.Bounds))
+      else if (Ball.Bounds.IntersectsWith(PlayerRight.Bounds))
       {
-        Collision(PC);
+        Collision(PlayerRight);
       }
       HitBorder();
-      BallLeftField();
+      BallOutOfField();
       BallMoves();
     }
+
     private void Collision(PictureBox Paddle)
     {
       switch (true)
       {
         case true when Upper(Paddle):
-          speed_Top = Negative(4, 6);
-          speed_Left = AdjustCoordinates(5, 6);
+          stepTop = Negative(4, 6);
+          stepLeft = AdjustCoordinates(5, 6);
           break;
         case true when High(Paddle):
-          speed_Top = Negative(2, 3);
-          speed_Left = AdjustCoordinates(6, 7);
+          stepTop = Negative(2, 3);
+          stepLeft = AdjustCoordinates(6, 7);
           break;
         case true when Middle(Paddle):
-          speed_Top = 0;
-          speed_Left = AdjustCoordinates(5, 5);
+          stepTop = 0;
+          stepLeft = AdjustCoordinates(5, 5);
           break;
         case true when Low(Paddle):
-          speed_Top = r.Next(2, 3);
-          speed_Left = AdjustCoordinates(6, 7);
+          stepTop = r.Next(2, 3);
+          stepLeft = AdjustCoordinates(6, 7);
           break;
         case true when Bot(Paddle):
-          speed_Top = r.Next(4, 6);
-          speed_Left = AdjustCoordinates(5, 6);
+          stepTop = r.Next(4, 6);
+          stepLeft = AdjustCoordinates(5, 6);
           break;
       }
       Edge();
@@ -411,25 +405,25 @@ namespace GameServer
     {
       if (Ball.Location.Y <= 0 || Ball.Location.Y >= limit_Ball)
       {
-        speed_Top *= -1;
+        stepTop *= -1;
       }
     }
-    private void BallLeftField()
+    private void BallOutOfField()
     {
-      if (player_won == 10 || computer_won == 10)
+      if (player_won == 10 || player_right_won == 10)
       {
         EndGame();
       }
 
-      if (Ball.Location.X < 0 - Player.Width && Ball.Location.X < getLimitRight() / 2)
+      if (Ball.Location.X < 0 - PlayerLeft.Width && Ball.Location.X < getLimitRight() / 2)
       {
         NewPoint(5);
-        ComputerWon();
+        PlayerRightWon();
       }
-      else if (Ball.Location.X > PC.Location.X + PC.Width && Ball.Location.X > getLimitRight() / 2)
+      else if (Ball.Location.X > PlayerRight.Location.X + PlayerRight.Width && Ball.Location.X > getLimitRight() / 2)
       {
         NewPoint(-5);
-        PlayerWon();
+        PlayerLeftWon();
       }
     }
     private void Edge()
@@ -438,84 +432,251 @@ namespace GameServer
       {
         if (Ball.Location.X < 0 + Ball.Height / 3)
         {
-          speed_Left *= -1;
+          stepLeft *= -1;
         }
       }
       else if (Ball.Location.X > getLimitRight() / 2)
       {
-        if (Ball.Location.X > PC.Location.X + (Ball.Width / 3))
+        if (Ball.Location.X > PlayerRight.Location.X + (Ball.Width / 3))
         {
-          speed_Left *= -1;
+          stepLeft *= -1;
         }
       }
     }
     private void NewPoint(int n)
     {
       Ball.Location = new System.Drawing.Point(x, y);
-      speed_Top = 0;
-      speed_Left = n;
+      stepTop = 0;
+      stepLeft = n;
     }
     private void StartValues()
     {
-      speed_Top = 0;
-      speed_Left = -5;
+      stepTop = 0;
+      stepLeft = -5;
     }
+
     private void BallMoves()
     {
-      Ball.Top += speed_Top;
-      Ball.Left += speed_Left;
+      //
+      // tell the ball wehere it should be
+      //
+
+      if (chkLive.Checked)
+      {
+        // get ball location from camera
+
+        //tell the ball where it should go
+        SendToRoombaBT("f");
+        //SendToRoombaWifi("esp8266:LEDON");
+        //SendToRoombaWifi("esp8266:T" + Ball.Top.ToString());
+        //SendToRoombaWifi("esp8266:L" + Ball.Left.ToString());
+      }
+      else
+      {
+        // update ball picture
+        Ball.Top += stepTop;
+        Ball.Left += stepLeft;
+      }
+
     }
+
     private void Computer(object sender, EventArgs e)
     {
-      if (PC.Location.Y <= 0)
+      if (chkComputer.Checked)
       {
-        PC.Location = new System.Drawing.Point(PC.Location.X, 0);
+        if (PlayerRight.Location.Y <= 0)
+        {
+          PlayerRight.Location = new System.Drawing.Point(PlayerRight.Location.X, 0);
+        }
+        else if (PlayerRight.Location.Y >= limit_Pad)
+        {
+          PlayerRight.Location = new System.Drawing.Point(PlayerRight.Location.X, limit_Pad);
+        }
+        if (Ball.Location.Y < PlayerRight.Top + (PlayerRight.Height / 2))
+        {
+          PlayerRight.Top -= 3;
+        }
+        else if (Ball.Location.Y > PlayerRight.Top + (PlayerRight.Height / 2))
+        {
+          PlayerRight.Top += 3;
+        }
       }
-      else if (PC.Location.Y >= limit_Pad)
-      {
-        PC.Location = new System.Drawing.Point(PC.Location.X, limit_Pad);
-      }
-      if (Ball.Location.Y < PC.Top + (PC.Height / 2))
-      {
-        PC.Top -= 3;
-      }
-      else if (Ball.Location.Y > PC.Top + (PC.Height / 2))
-      {
-        PC.Top += 3;
-      }
+
     }
-    private void PlayerWon()
+    private void PlayerLeftWon()
     {
       player_won++;
-      label1.Text = player_won.ToString();
+      labelLeftScore.Text = player_won.ToString();
     }
-    private void ComputerWon()
+    private void PlayerRightWon()
     {
-      computer_won++;
-      label3.Text = computer_won.ToString();
+      player_right_won++;
+      labelRightScore.Text = player_right_won.ToString();
     }
     private void button2_Click(object sender, EventArgs e)
     {
       StartValues();
-      game = true;
-      timer1.Start();
-      timer2.Start();
-      timer3.Start();
+      timerLeftPaddle.Start();
+      timerRightPaddle.Start();
+      timerBall.Start();
+      timerComputer.Start();
+    }
+
+    private void pictureBoxGame_Paint(object sender, PaintEventArgs e)
+    {
+      int penWidth = 4;
+      // draw middle dashed line
+      using (Pen pen = new Pen(Color.White, penWidth))
+      {
+        pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+        e.Graphics.DrawLine(pen, new PointF(pictureBoxGame.Width / 2, 0), new PointF(pictureBoxGame.Width / 2, pictureBoxGame.Height));
+      }
+
+      // draw rectangle
+      Rectangle rect = new Rectangle(0, 0, pictureBoxGame.Width - penWidth, pictureBoxGame.Height - penWidth);
+      using (Pen pen = new Pen(Color.White, penWidth))
+      {
+        e.Graphics.DrawRectangle(pen, rect);
+      }
+
     }
 
     private void EndGame()
     {
-      Player.Location = new System.Drawing.Point(0, 75);
-      PC.Location = new System.Drawing.Point(454, 75);
-      game = false;
+      PlayerLeft.Location = new System.Drawing.Point(0, 75);
+      PlayerRight.Location = new System.Drawing.Point(454, 75);
       player_won = 0;
-      computer_won = 0;
-      label1.Text = player_won.ToString();
-      label3.Text = computer_won.ToString();
-      timer1.Stop();
-      timer2.Stop();
-      timer3.Stop();
+      player_right_won = 0;
+      labelLeftScore.Text = player_won.ToString();
+      labelRightScore.Text = player_right_won.ToString();
+      timerLeftPaddle.Stop();
+      timerRightPaddle.Stop();
+      timerBall.Stop();
+      timerComputer.Stop();
     }
+
+    private void chkLive_CheckedChanged(object sender, EventArgs e)
+    {
+      if (chkLive.Checked)
+      {
+        CalibrateCamera();
+        CaptureCamera();
+      }
+      else
+      {
+        ReleaseCamera();
+      }
+    }
+
+    // de-skew camera trapez into rectangle
+    Mat OpenWarpPerspective(Mat src)
+    {
+
+      Point2f[] a =
+      {
+          new Point2f(0 + 160, 0),
+          new Point2f(0, pictureBoxGame.Height),
+          new Point2f(pictureBoxGame.Width, pictureBoxGame.Height),
+          new Point2f(pictureBoxGame.Width - 160, 0)
+      };
+
+      Point2f[] b =
+      {
+          new Point2f(0, 0),
+          new Point2f(0, pictureBoxGame.Height),
+          new Point2f(pictureBoxGame.Width, pictureBoxGame.Height),
+          new Point2f(pictureBoxGame.Width, 0)
+      };
+
+      Mat dest = new Mat(new OpenCvSharp.Size(pictureBoxGame.Width, pictureBoxGame.Height), MatType.CV_8UC3);
+      Mat map_matrix = Cv2.GetPerspectiveTransform(a, b);
+      Cv2.WarpPerspective(src, dest, map_matrix, dest.Size(), InterpolationFlags.Linear | InterpolationFlags.WarpFillOutliers, BorderTypes.Default, Scalar.All(255)); //AccessViolation
+
+      map_matrix.Dispose();
+      return dest;  
+    }
+
+
+    private void SendToRoombaBT(String message)
+    {
+      try
+      {
+
+        if (serialPort == null)
+        {
+          serialPort = new SerialPort();
+          serialPort.BaudRate = 9600;
+          serialPort.PortName = "COM10"; // Set in Windows
+          serialPort.StopBits = StopBits.One;
+          serialPort.Parity = Parity.None;
+          serialPort.Open();
+        }
+        if (serialPort.IsOpen)
+        {
+            // WRITE THE INCOMING BUFFER TO CONSOLE
+            //while (serialPort.BytesToRead > 0)
+            //{
+            //    Console.Write(Convert.ToChar(serialPort.ReadChar()));
+            //}
+            // SEND
+            serialPort.WriteLine(message);
+            //Thread.Sleep(500);
+            //serialPort.Close();
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine("Exception: {0}", e);
+        lblError.Text = e.Message;
+      }
+
+    }
+
+
+    private void SendToRoombaWifi(String message)
+    {
+      try
+      {
+
+        // Create a TcpClient
+        TcpClient client = new TcpClient("192.168.4.1", 80);
+        //PERF: optimize with client.Connected
+
+        // Translate the passed message into ASCII and store it as a Byte array.
+        Byte[] data = System.Text.Encoding.ASCII.GetBytes(message);
+
+        // Get a client stream for reading and writing.
+        NetworkStream stream = client.GetStream();
+
+        // Send the message to the connected TcpServer.
+        stream.Write(data, 0, data.Length);
+        Console.WriteLine("Sent: {0}", message);
+
+        // Receive the TcpServer.response.
+
+        // Buffer to store the response bytes.
+        //data = new Byte[256];
+        // String to store the response ASCII representation.
+        //String responseData = String.Empty;
+
+        // Read the first batch of the TcpServer response bytes.
+        ////StreamReader sr = new StreamReader(stream);
+        ////responseData = sr.ReadLine();
+        //Int32 bytes = stream.Read(data, 0, data.Length);
+        //responseData = System.Text.Encoding.ASCII.GetString(data, 0, bytes);
+        //Console.WriteLine("Received: {0}", responseData);
+
+        stream.Close();
+        client.Close();
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine("Exception: {0}", e);
+        lblError.Text = e.Message;
+      }
+
+    }
+
 
   }
 }

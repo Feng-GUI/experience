@@ -1,15 +1,3 @@
-/*
-void checkBTcmd()  // verify if a command is received from BT remote control
- { 
-    if (BT1.available()) 
-    { 
-      command = BT1.read();
-      BT1.flush();
-    }
- }
-
- */
- //******************************************************************************//
 
 void manualCmd()
 {
@@ -19,8 +7,8 @@ void manualCmd()
     case 'm': 
       startSafe();
       Serial.print("Roomba in Safe mode");
-      //BT1.print("Roomba BT Ctrl OK - Safe mode");
-      //BT1.println('\n');
+      BT1.print("Roomba BT Ctrl OK - Safe mode");
+      BT1.println('\n');
       command = 'f';
       playSound (3);
       break;
@@ -29,6 +17,7 @@ void manualCmd()
       driveStop(); //turn off both motors
       writeLEDs ('s', 't', 'o', 'p');
       state = command;
+      Serial.println("command f"); 
       break;
 
     case 'w':  

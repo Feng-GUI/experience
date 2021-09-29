@@ -10,7 +10,8 @@
 
 int motorSpeed = 100;
 
-char command = 0; // variable to store command received from IR or BT remote control
+// store command received from IR or BT remote control
+char command = 0;
 char state = 0;
 
 int buttonPin = 12;
@@ -30,14 +31,9 @@ char digit3;
 char digit4;
 
 //blocking sensor functions - these will request data and wait until a response is recieved, then return the response
-
 int getSensorData(byte sensorID);
 int * getSensorData(byte numOfRequests, byte requestIDs[]);
-
 bool getSensorData(byte * buffer, byte bufferLength);
 
 byte single_byte_packets[22] = { 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 21, 24, 34, 35, 36, 37, 38, 45, 52, 53, 58};
 bool is_in_array(byte val);
-
-
-

@@ -1,0 +1,220 @@
+
+#include "roombaDefines.h"
+#include <SoftwareSerial.h>
+
+#include <ESP8266WiFi.h>
+#include <WiFiClient.h>
+#include <ESP8266WebServer.h>
+
+
+// Roomba Create2 connection
+int rxPin = D5; //10;
+int txPin = D6;// 11;
+SoftwareSerial Roomba(rxPin,txPin);
+
+
+/* Set these to your desired credentials. */
+const char *ssid = "RoombaPong"; //Enter your WIFI ssid
+const char *password = "12341234"; //Enter your WIFI password
+ESP8266WebServer server(80);
+
+void handleRoot() {
+ server.send(200, "text/html", "<form action=\"/LED_BUILTIN_on\" method=\"get\" id=\"form1\"></form><button type=\"submit\" form=\"form1\" value=\"On\">On</button><form action=\"/LED_BUILTIN_off\" method=\"get\" id=\"form2\"></form><button type=\"submit\" form=\"form2\" value=\"Off\">Off</button>");
+}
+
+void handleSave() {
+ if (server.arg("pass") != "") {
+   Serial.println(server.arg("pass"));
+ }
+}
+
+void handleGenericArgs() { // generic arguments Handler
+
+  String message = "Number of args received:";
+  message += server.args();            // Get number of parameters
+  message += "\n";                     // Add a new line
+
+  for (int i = 0; i < server.args(); i++) {
+
+    message += "Arg no " + (String)i + ":"; // Include the current iteration value
+    message += server.argName(i) + "=";     // Get the name of the parameter
+    message += server.arg(i) + "\n";        // Get the value of the parameter
+  } 
+
+  server.send(200, "text/plain", message);       //Response to the HTTP request
+}
+
+void handleSpecificArg() { 
+  String message = "";
+
+  if (server.arg("stop")!= ""){
+    message = "stop=";
+    message += server.arg("stop");
+
+    roombaStop();
+    writeLEDs ('s', 't', 'o', 'p');
+  }
+  else if (server.arg("up")!= ""){
+    message = "up=";
+    message += server.arg("up");
+
+    drive (motorSpeed, 0);
+    writeLEDs ('-', 'u', 'p', '-');
+  }
+  else if (server.arg("down")!= ""){
+    message = "down=";
+    message += server.arg("down");
+
+    drive (-motorSpeed, 0);
+    writeLEDs ('d', 'o', 'w', 'n');
+    
+  }
+  else
+  {
+    message = "no known arguments found";
+  }
+    
+/*  
+  if (server.arg("Temperature")== ""){     //Parameter not found
+    message = "Temperature Argument not found";
+  }else{     //Parameter found
+    message = "Temperature Argument = ";
+    message += server.arg("Temperature");     //Gets the value of the query parameter
+  }
+*/
+
+  server.send(200, "text/plain", message);          //Returns the HTTP response
+}
+
+
+void setup() {
+ pinMode(LED_BUILTIN, OUTPUT);
+ delay(3000);
+ Serial.begin(115200);
+ Serial.println();
+ Serial.print("Configuring access point...");
+
+/* ESP as AP client
+ WiFi.begin(ssid, password);
+ while (WiFi.status() != WL_CONNECTED) {
+   delay(500);
+   Serial.print(".");
+ }
+*/
+
+ // ESP as AP server
+ // Remove the password parameter, if you want the AP (Access Point) to be open
+ WiFi.softAP(ssid, password);
+ IPAddress IP = WiFi.softAPIP();
+ Serial.print("AP IP address: ");
+ Serial.println(IP);
+
+ // continue
+ Serial.println("");
+ Serial.println("WiFi connected");
+ Serial.println("IP address: ");
+ // Print ESP8266 Local IP Address
+ Serial.println(WiFi.localIP());
+ server.on ( "/", handleRoot );
+ server.on ("/save", handleSave);
+ server.begin();
+ Serial.println ("HTTP server started" );
+
+ server.on("/genericArgs", handleGenericArgs);  //Associate the handler function to the path
+ server.on("/specificArgs", handleSpecificArg); //Associate the handler function to the path
+
+/*  
+ server.on("/LED_BUILTIN_on", []() {
+   digitalWrite(LED_BUILTIN, 1);
+   Serial.println("on");
+   handleRoot();
+ });
+ server.on("/LED_BUILTIN_off", []() {
+   digitalWrite(LED_BUILTIN, 0);
+   Serial.println("off");
+   handleRoot();
+ });
+*/
+
+  Roomba.begin(115200);
+  //pinMode(ddPin, OUTPUT);
+  pinMode(ledPin, OUTPUT); //spare if needed for test purpose
+  delay(2000);
+  //Serial.println("Roomba Remote Control");
+
+  //arduinoLedBlink();
+
+//By default, Roomba communicates at 115200 baud. If you are using a microcontroller that does not
+//support 115200 baud, there are two ways to force Roomba to switch to 19200:
+//Method 1 (manual):
+//While powering off Roomba, continue to hold down the Clean/Power button after the light has turned off.
+//After about 10 seconds, Roomba plays a tune of descending pitches. Roomba will communicate at 19200
+//baud until the processor loses battery power or the baud rate is explicitly changed by way of the OI.
+
+//Method 2 (using BRC pin):
+//Use the Baud Rate Change pin (pin 5 on the Mini-DIN connector) to change Roomba’s baud rate. After
+//turning on Roomba, wait 2 seconds and then pulse the Baud Rate Change low three times. Each pulse
+//should last between 50 and 500 milliseconds. Roomba will communicate at 19200 baud until the
+//processor loses battery power or the baud rate is explicitly changed by way of the OI. 
+
+  //Serial.println("wakeUp");
+  //wakeUp ();   // Wake-up Roomba ddPin (BRC at the connector)
+  //Serial.println("changeBoudRateTo19200");
+  //roombaChangeBoudRateTo19200();
+
+//Power Saving
+// In Passive mode, Roomba will sleep after 5 minutes of inactivity to preserve battery power. 
+// In Safe and Full modes, Roomba will never sleep, and if left in this state for an extended period of time, will deeply
+// discharge its battery, even if plugged into the charger. The charger will power Roomba in all modes, but
+// it will not charge the battery in Safe or Full mode. It is important that when you are finished working with
+// Roomba that you issue either the Passive or Stop command to protect the battery
+
+  Serial.println("startSafe");
+  startSafe(); // Start Roomba in Safe Mode
+
+  //arduinoLedBlink();
+  
+  // turn-off all LEDs and Display
+  Serial.println("setPowerLED");
+  setPowerLED(128,0);
+  setDebrisLED(OFF);
+  setDockLED(OFF);
+  setSpotLED(OFF);
+  setWarningLED(OFF);
+  Serial.println("cleanDigitLED");
+  cleanDigitLED ();
+
+  Serial.println("playSound");
+  playSound (1); // start sound
+  delay(1000);
+  //while (digitalRead(buttonPin))
+  //{  
+    setDebrisLED(ON);
+    writeLEDs ('-', '-', '-', '-');
+  //}
+  setDebrisLED(OFF);
+  writeLEDs ('s', 't', 'o', 'p');
+
+  Serial.println("playSound");
+  playSound (2);
+  delay(1000);
+
+  Serial.println("test Roomba");
+  //motorSquareTest(); // un-comment if you want to test Roomba doing a square 
+  turnCW (40, 180);  //un-comment if you want to test Roomba spin clock-wise 180 degrees and stop
+  //driveWheels(20, -20); //un-comment if you want to test Roomba spin
+  //driveLeft(20); //un-comment if you want to test Roomba turning left 
+
+  Serial.println("setup done");
+}
+void loop() {
+ server.handleClient();
+} 
+
+void arduinoLedBlink()
+{
+  digitalWrite(ledPin, HIGH);   // sets the LED on
+  delay(1000);                  // waits for a second
+  digitalWrite(ledPin, LOW);    // sets the LED off
+  delay(1000);                  // waits for a second
+}

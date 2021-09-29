@@ -1,5 +1,6 @@
 
-// wake up the robot
+// wake up the robot using ddPin (BRC at the connector)
+// instead, you can 
 void wakeUp (void)
 {
   //setWarningLED(ON);
@@ -8,6 +9,27 @@ void wakeUp (void)
   digitalWrite(ddPin, LOW);
   delay(500);
   digitalWrite(ddPin, HIGH);
+  delay(2000);
+}
+
+// Use the ddPin Baud Rate Change pin (pin 5 on the Mini-DIN connector) to change Roomba’s baud rate. After turning on Roomba, 
+//wait 2 seconds and then pulse the Baud Rate Change low three times. 
+//Each pulse should last between 50 and 500 milliseconds. Roomba will communicate at 19200 baud 
+//until the processor loses battery power or the baud rate is explicitly changed by way of the OI.
+
+void roombaChangeBoudRateTo19200 (void)
+{
+  digitalWrite(ddPin, HIGH);  delay(100);  
+  digitalWrite(ddPin, LOW);
+  delay(100);
+  digitalWrite(ddPin, HIGH);  delay(100);  
+  digitalWrite(ddPin, LOW);
+  delay(100);
+  digitalWrite(ddPin, HIGH);  delay(100);  
+  digitalWrite(ddPin, LOW);
+  delay(100);
+  digitalWrite(ddPin, HIGH);  delay(100);  
+  digitalWrite(ddPin, LOW);
   delay(2000);
 }
 
@@ -38,7 +60,7 @@ void startFull()
 
 /*--------------------------------------------------------------------------
 This command stops the OI. All streams will stop and the robot will no longer respond to commands. Use this command when you are finished working with the robot. */
-void stop(void)
+void roombaStop(void)
 {
   Roomba.write(173);
 }

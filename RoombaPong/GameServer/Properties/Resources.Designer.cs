@@ -63,6 +63,16 @@ namespace GameServer.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap img_120503 {
+            get {
+                object obj = ResourceManager.GetObject("img_120503", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap RoombaPong_logo {
             get {
                 object obj = ResourceManager.GetObject("RoombaPong-logo", resourceCulture);
