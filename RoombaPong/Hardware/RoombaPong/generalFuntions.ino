@@ -1,14 +1,57 @@
 
+
+void readBTcmd() 
+{ 
+  if (BT1.available()) 
+  { 
+    strCmd = BT1.readString();
+    BT1.flush();
+
+    if (strCmd.equals("go"))
+    {
+      drive (motorSpeed, 0); 
+      writeLEDs (' ', 'g', 'o', ' ');
+        
+    }
+    else if (strCmd.equals("stop"))
+    {
+      driveStop();
+      writeLEDs ('s', 't', 'o', 'p');
+    }
+    else if (strCmd.startsWith("turn"))
+    {
+      String degreeStr = strCmd.substring(4);
+      int degree = degreeStr.toInt();
+      turnCCW(motorSpeed, degree);
+      writeLEDs ('t', 'u', 'r', 'n');
+    }
+    
+  }
+}
+
+
+
+
+void checkBTcmd()  // verify if a command is received from BT remote control
+ { 
+    if (BT1.available()) 
+    { 
+      command = BT1.read();
+      BT1.flush();
+    }
+ }
+
+
 void manualCmd()
 {
   switch (command)
   {
     
     case 'm': 
-      startSafe();
+//      startSafe();
       Serial.print("Roomba in Safe mode");
-      BT1.print("Roomba BT Ctrl OK - Safe mode");
-      BT1.println('\n');
+//      BT1.print("Roomba BT Ctrl OK - Safe mode");
+//      BT1.println('\n');
       command = 'f';
       playSound (3);
       break;

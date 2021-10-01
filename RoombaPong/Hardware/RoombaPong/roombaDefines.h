@@ -8,15 +8,17 @@
 # define MAX_SPEED 220 // 70% of top speed ==> 256
 # define MIN_SPEED 70 
 
-int motorSpeed = 100;
+int motorSpeed = MAX_SPEED; // default 100
 
 // store command received from IR or BT remote control
 char command = 0;
 char state = 0;
 
+String strCmd;
+
 int buttonPin = 12;
 int ledPin=13;
-int ddPin=5; //device detect
+int ddPin=5; //device detect. BRC pin to roomba
 
 bool debrisLED;
 bool spotLED;

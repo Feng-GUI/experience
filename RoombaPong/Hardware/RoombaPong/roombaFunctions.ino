@@ -1,6 +1,6 @@
 
 // wake up the robot using ddPin (BRC at the connector)
-// instead, you can 
+// instead, you can change the boud rate manually
 void wakeUp (void)
 {
   //setWarningLED(ON);
@@ -45,6 +45,7 @@ This command gives you control over Roomba turning on the cliff, wheel-drop and 
 void startSafe()
 {  
   Roomba.write(128);  //Start
+  delay(150);
   Roomba.write(131);  //Safe mode
   delay(1000);
 }
@@ -158,10 +159,10 @@ void turnCW(unsigned short velocity, unsigned short degrees)
 //---------------------------------------------------------------
 void turnCCW(unsigned short velocity, unsigned short degrees)
 {
-  drive(velocity, 1); 
+  drive(velocity, 1);
   clamp(velocity, 0, 500);
-  delay(6600);
-  //delay(2708.3333/velocity*degrees);
+  //delay(6600);
+  delay(9.15*degrees);
   //delay((1580 + 2.25*velocity)/velocity*degrees);
   //delay((-0.03159720835 * velocity + 21.215270835) * degrees);
   drive(0,0);
@@ -216,7 +217,34 @@ void motorSquareTest(void)
   setPowerLED(0,0);
 }
 
+void motorTrapezTest()
+{
+  setPowerLED(0,128);
+  drive (motorSpeed, 0);
+  delay(5000);
+  driveStop();
+  turnCCW (motorSpeed, 30);
+  
+  setPowerLED(64,128);
+  drive (motorSpeed, 0);
+  delay(5000);
+  driveStop();
+  turnCCW (motorSpeed, 120);
+  
+  setPowerLED(128,128);
+  drive (motorSpeed, 0);
+  delay(5000);
+  driveStop();
+  turnCCW (motorSpeed, 30);
 
+  setPowerLED(190,128);
+  drive (motorSpeed, 0);
+  delay(5000);
+  driveStop();
+  turnCCW (motorSpeed, 90);
+  setPowerLED(255,128);
+  setPowerLED(0,0);
+}
  
 //blocking sensor functions - these will request data and wait until a response is recieved, then return the response
 
