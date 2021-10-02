@@ -150,7 +150,8 @@ void turnCW(unsigned short velocity, unsigned short degrees)
 {
   drive(velocity, -1);
   clamp(velocity, 0, 500);
-  delay(6600);
+  //delay(6600);
+  delay(9.15*degrees);
   //delay((1580 + 2.25*velocity)/velocity*degrees);
   //delay((-0.03159720835 * velocity + 21.215270835) * degrees);
   drive(0,0);

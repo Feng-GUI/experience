@@ -18,14 +18,24 @@ void readBTcmd()
       driveStop();
       writeLEDs ('s', 't', 'o', 'p');
     }
-    else if (strCmd.startsWith("turn"))
+    else if (strCmd.startsWith("ccw"))
     {
-      String degreeStr = strCmd.substring(4);
+      driveStop();
+      String degreeStr = strCmd.substring(2);
       int degree = degreeStr.toInt();
       turnCCW(motorSpeed, degree);
-      writeLEDs ('t', 'u', 'r', 'n');
+      writeLEDs ('c', 'c', 'w', ' ');
+      drive (motorSpeed, 0); 
     }
-    
+    else if (strCmd.startsWith("cw"))
+    {
+      driveStop();
+      String degreeStr = strCmd.substring(2);
+      int degree = degreeStr.toInt();
+      turnCW(motorSpeed, degree);
+      writeLEDs ('c', 'w', ' ', ' ');
+      drive (motorSpeed, 0); 
+    }
   }
 }
 

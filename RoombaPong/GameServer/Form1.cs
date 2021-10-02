@@ -114,22 +114,31 @@ namespace GameServer
                                 rvecDouble[2, 1] = R.Get<double>(2, 1);
                                 rvecDouble[2, 2] = R.Get<double>(2, 2);
 
-
                                 RotationMatrixToEulerZXY(rvecDouble);
 
                                 // if this is the roomba Marker id
                                 if (ids[i] == 0)
                                 {
-                                    Ball.Left = (int)corners[0][0].X;
-                                    Ball.Top = (int)corners[0][0].Y;
+                                    Ball.Invoke((MethodInvoker)delegate {
+                                        // Running on the UI thread
+                                        Ball.Left = (int)corners[0][0].X;
+                                        Ball.Top = (int)corners[0][0].Y;
+                                    });
+
+                                    //Ball.Left = (int)corners[0][0].X;
+                                    //Ball.Top = (int)corners[0][0].Y;
                                 }
                                 // left player Marker id
                                 else if (ids[i] == 1)
                                 {
+                                    //PlayerLeft.Left = (int)corners[0][0].X;
+                                    PlayerLeft.Top = (int)corners[0][0].Y - PlayerLeft.Height / 2;
                                 }
                                 // right player Marker id
                                 else if (ids[i] == 2)
                                 {
+                                    //PlayerRight.Left = (int)corners[0][0].X;
+                                    PlayerRight.Top = (int)corners[0][0].Y - PlayerRight.Height/2;
                                 }
 
                             }
@@ -201,7 +210,7 @@ namespace GameServer
                 ReleaseCamera();
 
                 //exit application
-                Environment.Exit(0);
+                //Environment.Exit(0);
 
             }
             catch (Exception ex)
@@ -625,7 +634,7 @@ namespace GameServer
                 {
                     serialPort = new SerialPort();
                     serialPort.BaudRate = 9600;
-                    serialPort.PortName = "COM5"; // Set in Windows
+                    serialPort.PortName = "COM6"; // Set in Windows
                     serialPort.StopBits = StopBits.One;
                     serialPort.Parity = Parity.None;
                     serialPort.Open();
@@ -639,7 +648,7 @@ namespace GameServer
                     //}
                     // SEND
                     serialPort.Write(message);
-                    //Thread.Sleep(500);
+                    Thread.Sleep(1000);
                     //serialPort.Close();
                 }
             }
@@ -669,6 +678,8 @@ namespace GameServer
 
         private void button4_Click(object sender, EventArgs e)
         {
+            //CalibrateCamera();
+            //CaptureCamera();
             timerBounce.Start();
         }
 
@@ -683,86 +694,97 @@ namespace GameServer
             {
                 prevX = Ball.Left;
                 prevY = Ball.Top;
+                SendToRoombaBT("go");
                 return;
             }
 
-/*
-            BallX += BallVx;
-            if (BallX < 0)
-            {
-                BallVx = -BallVx;
-            }
-            else if (BallX + BallWidth > ClientSize.Width)
-            {
-                BallVx = -BallVx;
-            }
+            /*
+                        BallX += BallVx;
+                        if (BallX < 0)
+                        {
+                            BallVx = -BallVx;
+                        }
+                        else if (BallX + BallWidth > ClientSize.Width)
+                        {
+                            BallVx = -BallVx;
+                        }
 
-            BallY += BallVy;
-            if (BallY < 0)
-            {
-                BallVy = -BallVy;
-            }
-            else if (BallY + BallHeight > ClientSize.Height)
-            {
-                BallVy = -BallVy;
-            }
+                        BallY += BallVy;
+                        if (BallY < 0)
+                        {
+                            BallVy = -BallVy;
+                        }
+                        else if (BallY + BallHeight > ClientSize.Height)
+                        {
+                            BallVy = -BallVy;
+                        }
 
-            Ball.Top = BallY;
-            Ball.Left = BallX;
- */
- 
+                        Ball.Top = BallY;
+                        Ball.Left = BallX;
+             */
+
+            double ballScale = 1.5;
+
             // if reached top
-            if (Ball.Top <= 0 + Ball.Width)
+            if (Ball.Top <= 0 + Ball.Width * ballScale)
             {
                 // if moving left
                 if (Ball.Left < prevX)
                 {
                     isCW = false;
+                    SendToRoombaBT("ccw90");
                 }
                 else
                 {
                     isCW = true;
+                    SendToRoombaBT("cw90");
                 }
             }
             // if reached bottom
-            else if (Ball.Top + Ball.Height >= pictureBoxGame.Height)
+            else if (Ball.Top + Ball.Height * ballScale >= pictureBoxGame.Height)
             {
                 // if moving right
                 if (Ball.Left >= prevX)
                 {
                     isCW = false;
+                    SendToRoombaBT("ccw90");
                 }
                 else
                 {
                     isCW = true;
+                    SendToRoombaBT("cw90");
                 }
 
             }
             
             // if reached left
-            if (Ball.Left <= 0 + Ball.Width)
+            if (Ball.Left <= 0 + Ball.Width * ballScale)
             {
                 // if moving up
                 if (Ball.Top <= prevY)
                 {
                     isCW = true;
+                    SendToRoombaBT("cw90");
                 }
                 else
                 {
                     isCW = false;
+                    SendToRoombaBT("ccw90");
                 }
             }
             // reached right
-            else if (Ball.Left + Ball.Width >= pictureBoxGame.Width)
+            else if (Ball.Left + Ball.Width * ballScale >= pictureBoxGame.Width)
             {
                 // moving up
                 if (Ball.Top <= prevY)
                 {
                     isCW = false;
+                    SendToRoombaBT("ccw90");
                 }
                 else
                 {
                     isCW = true;
+                    SendToRoombaBT("cw90");
                 }
             }
 
