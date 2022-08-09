@@ -14,11 +14,14 @@ namespace GameServer
 {
     public partial class Form1 : Form
     {
-        VideoCapture capture;
+        VideoCapture captureMap;
         Mat frameOrig;
         Mat frame;
         Bitmap image;
-        Thread cameraThread;
+        Thread captureMapThread;
+
+        VideoCapture captureCar;
+        Thread captureCarThread;
 
         SerialPort serialPort = null;
 
@@ -34,14 +37,20 @@ namespace GameServer
 
         private void CaptureCamera()
         {
-            cameraThread = new Thread(new ThreadStart(CaptureCameraCallback));
-            cameraThread.Start();
+            captureMapThread = new Thread(new ThreadStart(CaptureCameraMapCallback));
+            captureMapThread.Start();
+
+            captureCarThread = new Thread(new ThreadStart(CaptureCameraCarCallback));
+            captureCarThread.Start();
         }
 
         private void ReleaseCamera()
         {
-            if (cameraThread != null) cameraThread.Abort();
-            if (capture != null) capture.Release();
+            if (captureMapThread != null) captureMapThread.Abort();
+            if (captureMap != null) captureMap.Release();
+
+            if (captureCarThread != null) captureCarThread.Abort();
+            if (captureCar != null) captureCar.Release();
         }
 
         // camera calibration
@@ -51,27 +60,26 @@ namespace GameServer
             distCoeffs = Mat.Zeros(4, 1, MatType.CV_64FC1);
         }
 
-        private void CaptureCameraCallback()
+        private void CaptureCameraMapCallback()
         {
-
-            capture = new VideoCapture(0);
-            capture.Open(0);
-            capture.FrameWidth = 1920;
-            capture.FrameHeight = 1080;
+            captureMap = new VideoCapture();
+            captureMap.Open(1);
+            captureMap.FrameWidth = 1920;
+            captureMap.FrameHeight = 1080;
 
             frameOrig = new Mat();
             frame = new Mat();
 
-            if (capture.IsOpened())
+            if (captureMap.IsOpened())
             {
                 while (chkLive.Checked)
                 {
 
                     // read frame from camera
-                    capture.Read(frameOrig);
+                    captureMap.Read(frameOrig);
 
                     // scale down frame
-                    Cv2.Resize(frameOrig, frame, new OpenCvSharp.Size(pictureBoxGame.Width, pictureBoxGame.Height)); // 640, 360
+                    Cv2.Resize(frameOrig, frame, new OpenCvSharp.Size(pictureBoxMap.Width, pictureBoxMap.Height)); // 640, 360
 
                     // calibrate camera - de-skew frame
                     frame = OpenWarpPerspective(frame);
@@ -140,12 +148,39 @@ namespace GameServer
 
                     // draw frame on picture
                     image = BitmapConverter.ToBitmap(frame);
-                    if (pictureBoxCam.Image != null)
+                    if (pictureBoxMap.Image != null)
                     {
-                        pictureBoxCam.Image.Dispose();
+                        pictureBoxMap.Image.Dispose();
                     }
-                    pictureBoxCam.Image = image;
+                    pictureBoxMap.Image = image;
 
+                }
+            }
+        }
+
+        private void CaptureCameraCarCallback()
+        {
+            captureCar = new VideoCapture();
+            captureCar.Open(2);
+            captureCar.FrameWidth = 1920;
+            captureCar.FrameHeight = 1080;
+
+            Mat frame = new Mat();
+
+            if (captureCar.IsOpened())
+            {
+                while (chkLive.Checked)
+                {
+                    // read frame from camera
+                    captureCar.Read(frame);
+
+                    // draw frame on picture
+                    image = BitmapConverter.ToBitmap(frame);
+                    if (pictureBoxCar.Image != null)
+                    {
+                        pictureBoxCar.Image.Dispose();
+                    }
+                    pictureBoxCar.Image = image;
                 }
             }
         }
@@ -191,6 +226,8 @@ namespace GameServer
         {
             labelHelp.Text = "left up Q down A";
             labelHelp.Text += "\nright up P down L";
+
+            CalibrateCamera();
         }
 
 
@@ -232,19 +269,6 @@ namespace GameServer
         bool rightDown = false;
 
         Random r = new Random();
-
-        private int getLimitTop()
-        {
-            return pictureBoxGame.Top;
-        }
-        private int getLimitBottom()
-        {
-            return pictureBoxGame.Height - pictureBoxGame.Top;
-        }
-        private int getLimitRight()
-        {
-            return pictureBoxGame.Left + pictureBoxGame.Width;
-        }
 
         // key pressed event
         private void Pressed(object sender, KeyEventArgs e)
@@ -316,11 +340,11 @@ namespace GameServer
             using (Pen pen = new Pen(Color.White, penWidth))
             {
                 pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-                e.Graphics.DrawLine(pen, new PointF(pictureBoxGame.Width / 2, 0), new PointF(pictureBoxGame.Width / 2, pictureBoxGame.Height));
+                e.Graphics.DrawLine(pen, new PointF(pictureBoxCar.Width / 2, 0), new PointF(pictureBoxCar.Width / 2, pictureBoxCar.Height));
             }
 
             // draw rectangle
-            Rectangle rect = new Rectangle(0, 0, pictureBoxGame.Width - penWidth, pictureBoxGame.Height - penWidth);
+            Rectangle rect = new Rectangle(0, 0, pictureBoxCar.Width - penWidth, pictureBoxCar.Height - penWidth);
             using (Pen pen = new Pen(Color.White, penWidth))
             {
                 e.Graphics.DrawRectangle(pen, rect);
@@ -342,7 +366,6 @@ namespace GameServer
         {
             if (chkLive.Checked)
             {
-                CalibrateCamera();
                 CaptureCamera();
             }
             else
@@ -357,21 +380,21 @@ namespace GameServer
 
             Point2f[] a =
             {
-          new Point2f(0 + 160, 0),
-          new Point2f(0, pictureBoxGame.Height),
-          new Point2f(pictureBoxGame.Width, pictureBoxGame.Height),
-          new Point2f(pictureBoxGame.Width - 160, 0)
-      };
+                new Point2f(0 + 160, 0),
+                new Point2f(0, pictureBoxMap.Height),
+                new Point2f(pictureBoxMap.Width, pictureBoxMap.Height),
+                new Point2f(pictureBoxMap.Width - 160, 0)
+            };
 
             Point2f[] b =
             {
-          new Point2f(0, 0),
-          new Point2f(0, pictureBoxGame.Height),
-          new Point2f(pictureBoxGame.Width, pictureBoxGame.Height),
-          new Point2f(pictureBoxGame.Width, 0)
-      };
+                new Point2f(0, 0),
+                new Point2f(0, pictureBoxMap.Height),
+                new Point2f(pictureBoxMap.Width, pictureBoxMap.Height),
+                new Point2f(pictureBoxMap.Width, 0)
+            };
 
-            Mat dest = new Mat(new OpenCvSharp.Size(pictureBoxGame.Width, pictureBoxGame.Height), MatType.CV_8UC3);
+            Mat dest = new Mat(new OpenCvSharp.Size(pictureBoxMap.Width, pictureBoxMap.Height), MatType.CV_8UC3);
             Mat map_matrix = Cv2.GetPerspectiveTransform(a, b);
             Cv2.WarpPerspective(src, dest, map_matrix, dest.Size(), InterpolationFlags.Linear | InterpolationFlags.WarpFillOutliers, BorderTypes.Default, Scalar.All(255)); //AccessViolation
 
@@ -380,7 +403,7 @@ namespace GameServer
         }
 
 
-        private void SendToRoombaBT(String message)
+        private void SendMessageToSerial(String message)
         {
             try
             {
@@ -388,8 +411,8 @@ namespace GameServer
                 if (serialPort == null)
                 {
                     serialPort = new SerialPort();
-                    serialPort.BaudRate = 9600;
-                    serialPort.PortName = "COM6"; // Set in Windows
+                    serialPort.BaudRate = 9600; //FIXME
+                    serialPort.PortName = "COM6"; //FIXME Set in Windows
                     serialPort.StopBits = StopBits.One;
                     serialPort.Parity = Parity.None;
                     serialPort.Open();
@@ -417,74 +440,22 @@ namespace GameServer
 
         private void button1_Click(object sender, EventArgs e)
         {
-            SendToRoombaBT("go");
+            SendMessageToSerial("go");
 
         }
 
         private void button2_Click_1(object sender, EventArgs e)
         {
-            SendToRoombaBT("stop");
+            SendMessageToSerial("stop");
         }
 
         private void button3_Click(object sender, EventArgs e)
         {
-            SendToRoombaBT("turn90");
+            SendMessageToSerial("turn90");
         }
 
-        private void button4_Click(object sender, EventArgs e)
-        {
-            //CalibrateCamera();
-            //CaptureCamera();
-            timerBounce.Start();
-        }
 
-        private int BallX, BallY;   // Position.
-        private int BallVx = 4;
-        private int BallVy = 4; // Velocity.
 
-        private void SendToRoombaWifi(String message)
-        {
-            try
-            {
-
-                // Create a TcpClient
-                TcpClient client = new TcpClient("192.168.4.1", 80);
-                //PERF: optimize with client.Connected
-
-                // Translate the passed message into ASCII and store it as a Byte array.
-                Byte[] data = System.Text.Encoding.ASCII.GetBytes(message);
-
-                // Get a client stream for reading and writing.
-                NetworkStream stream = client.GetStream();
-
-                // Send the message to the connected TcpServer.
-                stream.Write(data, 0, data.Length);
-                Console.WriteLine("Sent: {0}", message);
-
-                // Receive the TcpServer.response.
-
-                // Buffer to store the response bytes.
-                //data = new Byte[256];
-                // String to store the response ASCII representation.
-                //String responseData = String.Empty;
-
-                // Read the first batch of the TcpServer response bytes.
-                ////StreamReader sr = new StreamReader(stream);
-                ////responseData = sr.ReadLine();
-                //Int32 bytes = stream.Read(data, 0, data.Length);
-                //responseData = System.Text.Encoding.ASCII.GetString(data, 0, bytes);
-                //Console.WriteLine("Received: {0}", responseData);
-
-                stream.Close();
-                client.Close();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Exception: {0}", e);
-                lblError.Text = e.Message;
-            }
-
-        }
 
 
     }
