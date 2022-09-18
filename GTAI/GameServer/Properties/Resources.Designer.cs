@@ -63,9 +63,9 @@ namespace GameServer.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap img_120503 {
+        internal static System.Drawing.Bitmap gta_R {
             get {
-                object obj = ResourceManager.GetObject("img_120503", resourceCulture);
+                object obj = ResourceManager.GetObject("gta-R", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -73,9 +73,19 @@ namespace GameServer.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap RoombaPong_logo {
+        internal static System.Drawing.Bitmap GTAI_logo_no_br {
             get {
-                object obj = ResourceManager.GetObject("RoombaPong-logo", resourceCulture);
+                object obj = ResourceManager.GetObject("GTAI-logo-no-br", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap pngwing_com {
+            get {
+                object obj = ResourceManager.GetObject("pngwing.com", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

@@ -113,10 +113,13 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\RoombaPong-logo.PNG" />
+    <None Include="Resources\GTAI-logo-no-br.png" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\img_120503.png" />
+    <None Include="Resources\pngwing.com.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\gta-R.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
