@@ -17,8 +17,8 @@ namespace GameServer
   public partial class Form1 : Form
   {
     // hard coded
-    const int MAP_CAM_USB_INDEX = 1;
-    const int CAR_CAM_USB_INDEX = 2;
+    const int MAP_CAM_USB_INDEX = 2;
+    const int CAR_CAM_USB_INDEX = 1;
     const int SERIALPORT_BAUD_RATE = 9600;
     const string SERIALPORT_PORT_NAME = "COM6";
 
@@ -72,24 +72,25 @@ namespace GameServer
     private void CaptureCameraMapCallback()
     {
       captureMap = new VideoCapture();
+      //captureMap.Set(VideoCaptureProperties.FrameWidth, 640);
+      //captureMap.Set(VideoCaptureProperties.FrameHeight, 480);
       captureMap.Open(MAP_CAM_USB_INDEX);
-      captureMap.FrameWidth = 1920;
-      captureMap.FrameHeight = 1080;
+      // reduce frame size to allow 2 camera work on USB bandwith
+      captureMap.FrameWidth = 640;//1920;
+      captureMap.FrameHeight = 480;//1080;
 
       frameOrig = new Mat();
       frame = new Mat();
 
       if (captureMap.IsOpened())
       {
-        while (chkLive.Checked)
+        while (true)
         {
-
           // read frame from camera
           captureMap.Read(frame);
 
           // detect the car
           frame = detectCar(frame);
-
 
 /*
  * detect object using markers 
@@ -179,33 +180,45 @@ namespace GameServer
 
     private void CaptureCameraCarCallback()
     {
-      captureCar = new VideoCapture();
-      captureCar.Open(CAR_CAM_USB_INDEX);
-      captureCar.FrameWidth = 1920;
-      captureCar.FrameHeight = 1080;
-
-      Mat frame = new Mat();
-
-      if (captureCar.IsOpened())
+      try
       {
-        while (chkLive.Checked)
+        captureCar = new VideoCapture();
+        //captureMap.Set(VideoCaptureProperties.FrameWidth, 640);
+        //captureMap.Set(VideoCaptureProperties.FrameHeight, 480);
+        captureCar.Open(CAR_CAM_USB_INDEX);
+        // reduce frame size to allow 2 camera work on USB bandwith
+        captureCar.FrameWidth = 1920;
+        captureCar.FrameHeight = 1080;
+
+        Mat frame = new Mat();
+
+        if (captureCar.IsOpened())
         {
-          // read frame from camera
-          captureCar.Read(frame);
-
-          // cartoonize the frame
-          frame = cartoonize(frame);
-
-          // draw frame on picture
-          image = BitmapConverter.ToBitmap(frame);
-          // dispose previous image
-          if (pictureBoxCar.Image != null)
+          while (true)
           {
-            pictureBoxCar.Image.Dispose();
+            // read frame from camera
+            captureCar.Read(frame);
+
+            // cartoonize the frame
+            frame = cartoonize(frame);
+
+            // draw frame on picture
+            image = BitmapConverter.ToBitmap(frame);
+            // dispose previous image
+            if (pictureBoxCar.Image != null)
+            {
+              pictureBoxCar.Image.Dispose();
+            }
+            // draw image on picture
+            pictureBoxCar.Image = image;
           }
-          // draw image on picture
-          pictureBoxCar.Image = image;
         }
+
+      }
+      catch (Exception ex)
+      {
+        Console.WriteLine("Exception: {0}", ex);
+        //lblError.Text = ex.Message;
       }
     }
 
@@ -343,11 +356,18 @@ namespace GameServer
 
     private void Form1_Load(object sender, EventArgs e)
     {
-      labelHelp.Text = "Use the arrow keys to drive the car";
+      try
+      {
+        labelHelp.Text = "Use the arrow keys to drive the car";
 
-      CalibrateCameraInit();
+        CalibrateCameraInit();
 
-      chkLive.Checked = true;
+      }
+      catch (Exception ex)
+      {
+        Console.WriteLine("Exception: {0}", ex);
+        lblError.Text = ex.Message;
+      }
     }
 
 
@@ -431,7 +451,16 @@ namespace GameServer
 
     private void button2_Click(object sender, EventArgs e)
     {
-      timerSelfDrive.Start();
+      try
+      {
+        timerSelfDrive.Start();
+        CaptureCamera();
+      }
+      catch (Exception ex)
+      {
+        Console.WriteLine("Exception: {0}", ex);
+        lblError.Text = ex.Message;
+      }
     }
 
     private void pictureBoxGame_Paint(object sender, PaintEventArgs e)
@@ -453,17 +482,17 @@ namespace GameServer
 
     }
 
-    private void chkLive_CheckedChanged(object sender, EventArgs e)
-    {
-      if (chkLive.Checked)
-      {
-        CaptureCamera();
-      }
-      else
-      {
-        ReleaseCamera();
-      }
-    }
+    //private void chkLive_CheckedChanged(object sender, EventArgs e)
+    //{
+    //  if (chkLive.Checked)
+    //  {
+    //    CaptureCamera();
+    //  }
+    //  else
+    //  {
+    //    ReleaseCamera();
+    //  }
+    //}
 
     // de-skew camera trapez into rectangle
     Mat OpenWarpPerspective(Mat src)
