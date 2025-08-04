@@ -49,7 +49,7 @@
 			// 
 			// btnStart
 			// 
-			this.btnStart.Location = new System.Drawing.Point(1024, 471);
+			this.btnStart.Location = new System.Drawing.Point(1011, 211);
 			this.btnStart.Name = "btnStart";
 			this.btnStart.Size = new System.Drawing.Size(80, 26);
 			this.btnStart.TabIndex = 13;
@@ -84,7 +84,7 @@
 			// 
 			// button1
 			// 
-			this.button1.Location = new System.Drawing.Point(1024, 419);
+			this.button1.Location = new System.Drawing.Point(1011, 285);
 			this.button1.Name = "button1";
 			this.button1.Size = new System.Drawing.Size(80, 26);
 			this.button1.TabIndex = 26;
@@ -171,7 +171,7 @@
 			this.Controls.Add(this.labelHelp);
 			this.Controls.Add(this.btnStart);
 			this.Name = "Form1";
-			this.Text = "GTA.I.";
+			this.Text = "PlasticDome";
 			this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
 			this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Form1_FormClosing);
 			this.Load += new System.EventHandler(this.Form1_Load);
