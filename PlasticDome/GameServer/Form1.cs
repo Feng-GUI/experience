@@ -16,7 +16,7 @@ namespace GameServer
 {
 	public partial class Form1 : Form
 	{
-		const int MAP_CAM_USB_INDEX = 0;
+		const int MAP_CAM_USB_INDEX = 1;
 		const int SERIALPORT_BAUD_RATE = 9600;
 		const string SERIALPORT_PORT_NAME = "COM6";
 
@@ -24,8 +24,6 @@ namespace GameServer
 		Mat frame;
 		Bitmap image;
 		Thread captureMapThread;
-		//Rect objectRect;
-
 		SerialPort serialPort = null;
 
 		// Store past ball positions for drawing trajectory
@@ -34,7 +32,6 @@ namespace GameServer
 		// Kalman filter object
 		static KalmanFilter kalman;
 		bool kalmanInitialized = false;
-		float deltaTime = 0.1f; // 100 ms = 0.1 second
 
 		// Prediction color (blue)
 		static Scalar predictedColor = new Scalar(255, 0, 0);
@@ -118,9 +115,9 @@ namespace GameServer
 			//captureMap.Set(VideoCaptureProperties.FrameWidth, 640);
 			//captureMap.Set(VideoCaptureProperties.FrameHeight, 480);
 			captureMap.Open(MAP_CAM_USB_INDEX);
-			// reduce frame size to allow 2 camera work on USB bandwith
-			captureMap.FrameWidth = 640;//1920;
-			captureMap.FrameHeight = 480;//1080;
+			// reduce frame size to 640x480 to allow 2 camera work on USB bandwith
+			//captureMap.FrameWidth = 640;//1920;
+			//captureMap.FrameHeight = 480;//1080;
 
 			frame = new Mat();
 
@@ -181,19 +178,19 @@ namespace GameServer
 			kalman.StatePost = new Mat(4, 1, MatType.CV_32FC1, new float[] { 0, 0, 0, 0 });
 		}
 
-
-		//ResetTransitionMatrix(); // Reset to dt = 1 for standard use
-		void ResetTransitionMatrix()
+		// dt = 1 for regular tracking per frame.
+		// dt = 10 frames ahead into the future
+		void FutureTransitionMatrix(float dt)
 		{
 				kalman.TransitionMatrix.Set<float>(0, 0, 1);
 				kalman.TransitionMatrix.Set<float>(0, 1, 0);
-				kalman.TransitionMatrix.Set<float>(0, 2, 1);
+				kalman.TransitionMatrix.Set<float>(0, 2, dt);
 				kalman.TransitionMatrix.Set<float>(0, 3, 0);
 
 				kalman.TransitionMatrix.Set<float>(1, 0, 0);
 				kalman.TransitionMatrix.Set<float>(1, 1, 1);
 				kalman.TransitionMatrix.Set<float>(1, 2, 0);
-				kalman.TransitionMatrix.Set<float>(1, 3, 1);
+				kalman.TransitionMatrix.Set<float>(1, 3, dt);
 
 				kalman.TransitionMatrix.Set<float>(2, 0, 0);
 				kalman.TransitionMatrix.Set<float>(2, 1, 0);
@@ -204,32 +201,6 @@ namespace GameServer
 				kalman.TransitionMatrix.Set<float>(3, 1, 0);
 				kalman.TransitionMatrix.Set<float>(3, 2, 0);
 				kalman.TransitionMatrix.Set<float>(3, 3, 1);
-		}
-
-		void FutureTransitionMatrix()
-		{
-			float dt = deltaTime; // seconds into the future
-
-			kalman.TransitionMatrix.Set<float>(0, 0, 1);
-			kalman.TransitionMatrix.Set<float>(0, 1, 0);
-			kalman.TransitionMatrix.Set<float>(0, 2, dt);
-			kalman.TransitionMatrix.Set<float>(0, 3, 0);
-
-			kalman.TransitionMatrix.Set<float>(1, 0, 0);
-			kalman.TransitionMatrix.Set<float>(1, 1, 1);
-			kalman.TransitionMatrix.Set<float>(1, 2, 0);
-			kalman.TransitionMatrix.Set<float>(1, 3, dt);
-
-			kalman.TransitionMatrix.Set<float>(2, 0, 0);
-			kalman.TransitionMatrix.Set<float>(2, 1, 0);
-			kalman.TransitionMatrix.Set<float>(2, 2, 1);
-			kalman.TransitionMatrix.Set<float>(2, 3, 0);
-
-			kalman.TransitionMatrix.Set<float>(3, 0, 0);
-			kalman.TransitionMatrix.Set<float>(3, 1, 0);
-			kalman.TransitionMatrix.Set<float>(3, 2, 0);
-			kalman.TransitionMatrix.Set<float>(3, 3, 1);
-
 		}
 
 
@@ -283,20 +254,6 @@ namespace GameServer
 				}
 			}
 
-			FutureTransitionMatrix();
-
-			// Predict next state
-			Mat prediction = kalman.Predict();
-			float px = prediction.At<float>(0);
-			float py = prediction.At<float>(1);
-			Console.WriteLine($"Predicted: ({px}, {py})");
-
-			OpenCvSharp.Point predictedPoint = new OpenCvSharp.Point(prediction.At<float>(0), prediction.At<float>(1));
-
-			// Draw prediction point (blue)
-			Cv2.Circle(frame, predictedPoint, 10, predictedColor, 2);
-			Cv2.PutText(frame, "Predicted", predictedPoint + new OpenCvSharp.Point(15, -15), HersheyFonts.HersheySimplex, 0.5, predictedColor);
-
 			if (ballDetected)
 			{
 				OpenCvSharp.Point measured = detectedCenter;
@@ -318,9 +275,18 @@ namespace GameServer
 
 				// Correct Kalman with actual measured position
 				kalman.Correct(measurement);
-
 				// Draw actual position (green)
 				Cv2.Circle(frame, measured, 10, observedColor, -1);
+
+				// look few frames into the future
+				float dt = 20;
+				FutureTransitionMatrix(dt);
+				// Predict next state
+				Mat prediction = kalman.Predict();
+				OpenCvSharp.Point predictedPoint = new OpenCvSharp.Point(prediction.At<float>(0), prediction.At<float>(1));
+				// Draw prediction point (blue)
+				Cv2.Circle(frame, predictedPoint, 10, predictedColor, 2);
+
 			}
 
 
@@ -457,6 +423,11 @@ namespace GameServer
 
 		}
 
+		private void button2_Click_2(object sender, EventArgs e)
+		{
+			trajectoryPoints.Clear();
+		}
+
 		private void button1_Click(object sender, EventArgs e)
 		{
 			SendMessageToSerial("go");
@@ -468,28 +439,6 @@ namespace GameServer
 			SendMessageToSerial("stop");
 		}
 
-		private void pictureBoxMap_Paint(object sender, PaintEventArgs e)
-		{
-			//e.Graphics.CompositingMode = CompositingMode.SourceOver;
-			//e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-			//e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-
-			//base.OnPaint(e);
-			//var rect = new Rectangle(0, 0, pictureBoxMap.Width - 1, pictureBoxMap.Height - 1);
-
-			//using (var gp = new GraphicsPath())
-			//{
-			//  gp.AddEllipse(rect);
-			//  pictureBoxMap.Region = new Region(gp);
-			//}
-
-			//rect.Inflate(-7 / 2 + 1, -7 / 2 + 1);
-			//using (var pen = new Pen(Color.Pink, 7))
-			//{
-			//  e.Graphics.DrawEllipse(pen, rect);
-			//}
-
-		}
 
 		private void timerSelfDrive_Tick(object sender, EventArgs e)
 		{
