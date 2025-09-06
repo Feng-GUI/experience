@@ -5,8 +5,11 @@ using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 using System.Windows.Forms;
+using System.IO;
 using System.IO.Ports;
 using System.Collections.Generic;
+
+using DirectShowLib;
 
 using OpenCvSharp;
 using OpenCvSharp.Aruco;
@@ -39,25 +42,12 @@ namespace GameServer
 		// Observation color (green)
 		static Scalar observedColor = new Scalar(0, 255, 0);
 
-		//////////////////////////////////////
-		//
-		// Remote Control 
-		//
-		const int limit_Pad = 170;
-		const int limit_Ball = 245;
-		const int x = 227, y = 120;
-
-		// keys controlling the Remote Control
-		bool leftKey = false;
-		bool rightKey = false;
-		bool upKey = false;
-		bool downKey = false;
-		Random r = new Random();
-
 
 		public Form1()
 		{
 			InitializeComponent();
+			this.vlcControl1.VlcLibDirectoryNeeded += vlcControl1_VlcLibDirectoryNeeded;
+
 			this.KeyPreview = true;
 		}
 
@@ -65,18 +55,61 @@ namespace GameServer
 		{
 			try
 			{
-				labelHelp.Text = "Use the arrow keys to drive the turret";
+				//labelHelp.Text = "Use the arrow keys to drive the turret";
 
 				// Initialize Kalman filter (stateSize = 4, measurementSize = 2)
 				kalman = new KalmanFilter(4, 2);
 				InitKalman();
 
+				string videoPath = @"C:\projects\PlasticDome\Sonar-1.mp4";
+				Uri videoUri = new Uri(videoPath);
+
+				// Create a new VlcMedia object with the '--loop' option
+				var mediaOptions = new string[] { "input-repeat=1000000", "loop" };
+
+				vlcControl1.SetMedia(new Uri(videoPath), mediaOptions);
+				vlcControl1.Play();
+
+				CaptureCamera();
 			}
 			catch (Exception ex)
 			{
 				Console.WriteLine("Exception: {0}", ex);
 				lblError.Text = ex.Message;
 			}
+		}
+
+		/// <summary>
+		/// Finds the camera's index by name using DirectShowLib.
+		/// </summary>
+		/// <param name="desiredCameraName">The full or partial name of the camera to find.</param>
+		/// <returns>The index of the camera if found; otherwise, -1.</returns>
+		public static int GetCameraIndexByName(string desiredCameraName)
+		{
+			// The DsDevice class is part of DirectShowLib and is used to enumerate video devices.
+			DsDevice[] videoDevices = DsDevice.GetDevicesOfCat(FilterCategory.VideoInputDevice);
+
+			// Check if any video devices were found.
+			if (videoDevices.Length == 0)
+			{
+				Console.WriteLine("No video input devices found.");
+				return -1;
+			}
+
+			// Loop through all found devices to find a name match.
+			for (int i = 0; i < videoDevices.Length; i++)
+			{
+				// We use .Contains() for a flexible search (e.g., "Webcam" will match "HP HD Webcam").
+				if (videoDevices[i].Name.Contains(desiredCameraName))
+				{
+					Console.WriteLine($"Found camera '{videoDevices[i].Name}' at index {i}.");
+					return i; // Return the found index.
+				}
+			}
+
+			// If the loop finishes and no camera was found, return -1.
+			Console.WriteLine($"Camera with name '{desiredCameraName}' not found.");
+			return -1;
 		}
 
 		private void Form1_FormClosing(object sender, FormClosingEventArgs e)
@@ -114,7 +147,14 @@ namespace GameServer
 			captureMap = new VideoCapture();
 			//captureMap.Set(VideoCaptureProperties.FrameWidth, 640);
 			//captureMap.Set(VideoCaptureProperties.FrameHeight, 480);
-			captureMap.Open(MAP_CAM_USB_INDEX);
+			// Replace "Webcam" with the name of your camera or a unique part of its name.
+			string myCameraName = "Lenovo FHD Webcam";
+
+			// Call the function to get the camera's index.
+			int cameraIndex = GetCameraIndexByName(myCameraName);
+
+			captureMap.Open(cameraIndex);
+
 			// reduce frame size to 640x480 to allow 2 camera work on USB bandwith
 			//captureMap.FrameWidth = 640;//1920;
 			//captureMap.FrameHeight = 480;//1080;
@@ -133,16 +173,48 @@ namespace GameServer
 					// detect the missile
 					frame = ProcessFrame(frame);
 
-					// draw frame on picture
-					image = BitmapConverter.ToBitmap(frame);
-					if (pictureBoxMap.Image != null)
-					{
-						pictureBoxMap.Image.Dispose();
-					}
-					pictureBoxMap.Image = image;
+					//// draw frame on picture
+					//image = BitmapConverter.ToBitmap(frame);
+					//if (pictureBoxMap.Image != null)
+					//{
+					//	pictureBoxMap.Image.Dispose();
+					//}
+					//pictureBoxMap.Image = image;
 
-				}
+					// --- IMPORTANT: The UI update must be on the main thread ---
+					// We use Invoke to make sure the code block inside the lambda
+					// is executed safely on the main UI thread.
+					if (pictureBoxMap.InvokeRequired)
+					{
+						pictureBoxMap.Invoke((MethodInvoker)delegate
+						{
+							// Dispose of the old image to free up memory
+							if (pictureBoxMap.Image != null)
+							{
+								pictureBoxMap.Image.Dispose();
+							}
+
+							// Convert the Mat to a Bitmap and set it as the PictureBox's image
+							image = BitmapConverter.ToBitmap(frame);
+							pictureBoxMap.Image = image;
+						});
+					}
+					else
+					{
+						// If we're already on the main thread (unlikely in this scenario),
+						// we can update directly.
+						if (pictureBoxMap.Image != null)
+						{
+							pictureBoxMap.Image.Dispose();
+						}
+						image = BitmapConverter.ToBitmap(frame);
+						pictureBoxMap.Image = image;
+					}
+				
+
+
 			}
+		}
 		}
 
 		static void InitKalman()
@@ -287,6 +359,7 @@ namespace GameServer
 				// Draw prediction point (blue)
 				Cv2.Circle(frame, predictedPoint, 10, predictedColor, 2);
 
+				SendMessageToSerial(predictedPoint.X.ToString() + "," + predictedPoint.Y.ToString() + "\r");
 			}
 
 
@@ -307,59 +380,10 @@ namespace GameServer
 		}
 
 
-		// key pressed event
-		private void Pressed(object sender, KeyEventArgs e)
-		{
-
-			if (e.KeyCode == Keys.Left)
-			{
-				leftKey = true;
-			}
-			else if (e.KeyCode == Keys.Right)
-			{
-				rightKey = true;
-			}
-			else if (e.KeyCode == Keys.Up)
-			{
-				upKey = true;
-			}
-			else if (e.KeyCode == Keys.Down)
-			{
-				downKey = true;
-			}
-
-			timerSelfDrive.Start();
-		}
-
-		// key released event
-		private void Released(object sender, KeyEventArgs e)
-		{
-			if (e.KeyCode == Keys.Left)
-			{
-				leftKey = false;
-			}
-			else if (e.KeyCode == Keys.Right)
-			{
-				rightKey = false;
-			}
-
-			if (e.KeyCode == Keys.Up)
-			{
-				upKey = false;
-			}
-			else if (e.KeyCode == Keys.Down)
-			{
-				downKey = false;
-			}
-
-			timerSelfDrive.Stop();
-		}
-
 		private void button2_Click(object sender, EventArgs e)
 		{
 			try
 			{
-				timerSelfDrive.Start();
 				CaptureCamera();
 			}
 			catch (Exception ex)
@@ -371,20 +395,20 @@ namespace GameServer
 
 		private void pictureBoxGame_Paint(object sender, PaintEventArgs e)
 		{
-			int penWidth = 4;
-			//// draw middle dashed line
+			//int penWidth = 4;
+			////// draw middle dashed line
+			////using (Pen pen = new Pen(Color.White, penWidth))
+			////{
+			////    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+			////    e.Graphics.DrawLine(pen, new PointF(pictureBoxCar.Width / 2, 0), new PointF(pictureBoxCar.Width / 2, pictureBoxCar.Height));
+			////}
+
+			//// draw rectangle
+			//Rectangle rect = new Rectangle(0, 0, pictureBoxCar.Width - penWidth, pictureBoxCar.Height - penWidth);
 			//using (Pen pen = new Pen(Color.White, penWidth))
 			//{
-			//    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-			//    e.Graphics.DrawLine(pen, new PointF(pictureBoxCar.Width / 2, 0), new PointF(pictureBoxCar.Width / 2, pictureBoxCar.Height));
+			//	e.Graphics.DrawRectangle(pen, rect);
 			//}
-
-			// draw rectangle
-			Rectangle rect = new Rectangle(0, 0, pictureBoxCar.Width - penWidth, pictureBoxCar.Height - penWidth);
-			using (Pen pen = new Pen(Color.White, penWidth))
-			{
-				e.Graphics.DrawRectangle(pen, rect);
-			}
 
 		}
 
@@ -411,7 +435,7 @@ namespace GameServer
 					//}
 					// SEND
 					serialPort.Write(message);
-					Thread.Sleep(1000);
+					//Thread.Sleep(1000);
 					//serialPort.Close();
 				}
 			}
@@ -428,28 +452,79 @@ namespace GameServer
 			trajectoryPoints.Clear();
 		}
 
-		private void button1_Click(object sender, EventArgs e)
-		{
-			SendMessageToSerial("go");
+    private void vlcControl1_Click(object sender, EventArgs e)
+    {
+
+    }
+
+    private void vlcControl1_VlcLibDirectoryNeeded(object sender, Vlc.DotNet.Forms.VlcLibDirectoryNeededEventArgs e)
+    {
+			var vlcLibDirectory = new DirectoryInfo(@"C:\Program Files\VideoLAN\VLC");
+
+			e.VlcLibDirectory = vlcLibDirectory;
+		
 
 		}
 
-		private void button2_Click_1(object sender, EventArgs e)
-		{
-			SendMessageToSerial("stop");
-		}
-
-
-		private void timerSelfDrive_Tick(object sender, EventArgs e)
-		{
+    private void vlcControl1_FontChanged(object sender, EventArgs e)
+    {
 
 		}
 
-		private void button3_Click(object sender, EventArgs e)
-		{
-			SendMessageToSerial("turn90");
+    private void vlcControl1_EndReached(object sender, Vlc.DotNet.Core.VlcMediaPlayerEndReachedEventArgs e)
+    {
+			// Check if we are on the main UI thread.
+			if (this.InvokeRequired)
+			{
+				// If not, call this method again on the main UI thread.
+				this.Invoke(new Action(() => vlcControl1_EndReached(sender, e)));
+				return;
+			}
+
+      // Get the current media's path (assuming you set it with a FileInfo)
+      // You might need to store the FileInfo in a class-level variable if you don't set it every time.
+      if (vlcControl1.GetCurrentMedia() != null)
+      {
+        // Stop the player (optional, but good practice)
+        vlcControl1.VlcMediaPlayer.Stop();
+
+        //var mediaPath = vlcControl1.GetCurrentMedia().Mrl; // MRL is the Media Resource Locator
+        vlcControl1.VlcMediaPlayer.SetMedia(new Uri(vlcControl1.GetCurrentMedia().Mrl)); // Re-set the media
+        vlcControl1.VlcMediaPlayer.Play(); // Play it again
+      }
+
+    }
+
+    private void vlcControl1_EncounteredError(object sender, Vlc.DotNet.Core.VlcMediaPlayerEncounteredErrorEventArgs e)
+    {
+
+    }
+
+    private void vlcControl1_Log(object sender, Vlc.DotNet.Core.VlcMediaPlayerLogEventArgs e)
+    {
+			// You can now access the log message here
+			// e.Level gives you the log level (Error, Warning, Info, etc.)
+			// e.Message is the actual log string
+			// e.Module is the component that logged the message
+
+			//Console.WriteLine($"VLC Log [{e.Level}]: {e.Message} (Module: {e.Module})");
+
 		}
 
+    private void vlcControl1_Click_1(object sender, EventArgs e)
+    {
 
-	}
+    }
+
+    private void button1_Click(object sender, EventArgs e)
+		{
+			
+
+		}
+
+    private void pictureBox1_Click(object sender, EventArgs e)
+    {
+
+    }
+  }
 }

@@ -36,21 +36,21 @@ void loop()
     int y_axis = inputString.substring(inputString.indexOf(',') + 1).toInt();
 
     // map cam resolution to turrent angle
-    int y = map(y_axis, 0, 1080, 180, 0);
-    int x = map(x_axis, 0, 1920, 180, 0);
+    int y = map(y_axis, 0, 1080, 0, 180);
+    int x = map(x_axis, 0, 1920, 0, 180);
 
     servoLeftRight.write(x);
     servoUpDown.write(y);
     
     // rotate to fire
-    servoFire.write(180);
+    //servoFire.write(180);
 
     // waits for the servos to reach their position before rotating back to start position
-    delay(1000);
+    //delay(1000);
     // rotate back to start position
-    servoLeftRight.write(0);
-    servoUpDown.write(0);
-    servoFire.write(0);
+    //servoLeftRight.write(0);
+    //servoUpDown.write(0);
+    //servoFire.write(0);
 
     // debug print
     Serial.println(x);
