@@ -4,6 +4,7 @@ using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
+using System.Diagnostics;
 using System.Windows.Forms;
 using System.IO;
 using System.IO.Ports;
@@ -19,7 +20,6 @@ namespace GameServer
 {
 	public partial class Form1 : Form
 	{
-		const int MAP_CAM_USB_INDEX = 1;
 		const int SERIALPORT_BAUD_RATE = 9600;
 		const string SERIALPORT_PORT_NAME = "COM6";
 
@@ -42,6 +42,9 @@ namespace GameServer
 		// Observation color (green)
 		static Scalar observedColor = new Scalar(0, 255, 0);
 
+		// prevent from flooding the serial. minimum time to wait between each serial command
+		Stopwatch stopwatch = new Stopwatch();
+		TimeSpan minimumInterval = TimeSpan.FromMilliseconds(500);
 
 		public Form1()
 		{
@@ -55,8 +58,6 @@ namespace GameServer
 		{
 			try
 			{
-				//labelHelp.Text = "Use the arrow keys to drive the turret";
-
 				// Initialize Kalman filter (stateSize = 4, measurementSize = 2)
 				kalman = new KalmanFilter(4, 2);
 				InitKalman();
@@ -70,6 +71,7 @@ namespace GameServer
 				vlcControl1.SetMedia(new Uri(videoPath), mediaOptions);
 				vlcControl1.Play();
 
+				stopwatch.Start();
 				CaptureCamera();
 			}
 			catch (Exception ex)
@@ -145,19 +147,12 @@ namespace GameServer
 		private void CaptureCameraMapCallback()
 		{
 			captureMap = new VideoCapture();
-			//captureMap.Set(VideoCaptureProperties.FrameWidth, 640);
-			//captureMap.Set(VideoCaptureProperties.FrameHeight, 480);
-			// Replace "Webcam" with the name of your camera or a unique part of its name.
 			string myCameraName = "Lenovo FHD Webcam";
-
-			// Call the function to get the camera's index.
 			int cameraIndex = GetCameraIndexByName(myCameraName);
-
+			// --- Set the desired resolution BEFORE opening the camera ---
+			captureMap.Set(VideoCaptureProperties.FrameWidth, 1920); // Set to FHD width
+			captureMap.Set(VideoCaptureProperties.FrameHeight, 1080); // Set to FHD height
 			captureMap.Open(cameraIndex);
-
-			// reduce frame size to 640x480 to allow 2 camera work on USB bandwith
-			//captureMap.FrameWidth = 640;//1920;
-			//captureMap.FrameHeight = 480;//1080;
 
 			frame = new Mat();
 
@@ -172,14 +167,6 @@ namespace GameServer
 
 					// detect the missile
 					frame = ProcessFrame(frame);
-
-					//// draw frame on picture
-					//image = BitmapConverter.ToBitmap(frame);
-					//if (pictureBoxMap.Image != null)
-					//{
-					//	pictureBoxMap.Image.Dispose();
-					//}
-					//pictureBoxMap.Image = image;
 
 					// --- IMPORTANT: The UI update must be on the main thread ---
 					// We use Invoke to make sure the code block inside the lambda
@@ -275,36 +262,47 @@ namespace GameServer
 				kalman.TransitionMatrix.Set<float>(3, 3, 1);
 		}
 
-
-
 		public Mat ProcessFrame(Mat src)
 		{
-			// find the Red object in the HSV color space
-			// define the lower and upper boundaries
+
 			Mat hsv = new Mat();
 			Cv2.CvtColor(src, hsv, ColorConversionCodes.BGR2HSV);
 
-			// lower mask (0-10)
-			Scalar redLower1 = new Scalar(0, 150, 150);
-			Scalar redUpper1 = new Scalar(10, 255, 255);
-			Mat objectMask1 = new Mat();
-			Cv2.InRange(hsv, redLower1, redUpper1, objectMask1);
+/*
+						// find the Red object in the HSV color space
+						// define the lower and upper boundaries
+						// red in HSV is around 0-10 and 170-179 so 2 masks are needed
 
-			// lower mask (0-10)
-			Scalar redLower2 = new Scalar(170, 150, 150);
-			Scalar redUpper2 = new Scalar(180, 255, 255);
-			Mat objectMask2 = new Mat();
-			Cv2.InRange(hsv, redLower2, redUpper2, objectMask2);
+						// lower mask (0-10)
+						Scalar redLower1 = new Scalar(0, 150, 150);
+						Scalar redUpper1 = new Scalar(10, 255, 255);
+						Mat objectMask1 = new Mat();
+						Cv2.InRange(hsv, redLower1, redUpper1, objectMask1);
 
-			// join the masks
-			Mat objectMask = objectMask1 + objectMask2;
+						// lower mask (0-10)
+						Scalar redLower2 = new Scalar(170, 150, 150);
+						Scalar redUpper2 = new Scalar(180, 255, 255);
+						Mat objectMask2 = new Mat();
+						Cv2.InRange(hsv, redLower2, redUpper2, objectMask2);
+
+						// join the masks
+						Mat objectMask = objectMask1 + objectMask2;
+			*/
+			// Define the HSV range for yellow
+			// You only need one range for yellow, as its hue does not wrap around the 180-degree scale.
+			Scalar yellowLower = new Scalar(20, 100, 100);
+			Scalar yellowUpper = new Scalar(40, 255, 255);
+			Mat objectMask = new Mat();
+			Cv2.InRange(hsv, yellowLower, yellowUpper, objectMask);
+
 
 			OpenCvSharp.Point[][] contours;
 			HierarchyIndex[] hierarchyIndexes; //vector<Vec4i> hierarchy;
 			Cv2.FindContours(objectMask, out contours, out hierarchyIndexes, RetrievalModes.Tree, ContourApproximationModes.ApproxSimple);
 
 			// Find the largest contour (assumed to be the object)
-			double maxArea = 0;
+			// set minimum size to reduce noise
+			double maxArea = 50;
 			OpenCvSharp.Point[] largestContour = null;
 			OpenCvSharp.Point detectedCenter = new OpenCvSharp.Point();
 			bool ballDetected = false;
@@ -329,7 +327,7 @@ namespace GameServer
 			if (ballDetected)
 			{
 				OpenCvSharp.Point measured = detectedCenter;
-				trajectoryPoints.Add(measured);
+				//DEBUG trajectoryPoints.Add(measured);
 
 				var measurement = new Mat(2, 1, MatType.CV_32FC1);
 				measurement.Set<float>(0, 0, measured.X);
@@ -351,7 +349,7 @@ namespace GameServer
 				Cv2.Circle(frame, measured, 10, observedColor, -1);
 
 				// look few frames into the future
-				float dt = 20;
+				float dt = 10;
 				FutureTransitionMatrix(dt);
 				// Predict next state
 				Mat prediction = kalman.Predict();
@@ -359,20 +357,25 @@ namespace GameServer
 				// Draw prediction point (blue)
 				Cv2.Circle(frame, predictedPoint, 10, predictedColor, 2);
 
-				SendMessageToSerial(predictedPoint.X.ToString() + "," + predictedPoint.Y.ToString() + "\r");
+				// protect from flooding the serial
+				if ((stopwatch.Elapsed >= minimumInterval))
+				{
+					stopwatch.Restart();
+
+					SendMessageToSerial(predictedPoint.X.ToString() + "," + predictedPoint.Y.ToString() + "\r");
+				}
+
 			}
 
-
-			// Draw trajectory line from observed positions
-			for (int i = 1; i < trajectoryPoints.Count; i++)
-			{
-				Cv2.Line(frame, trajectoryPoints[i - 1], trajectoryPoints[i], new Scalar(0, 255, 255), 2);
-			}
-
+			//// Draw trajectory line from observed positions
+			//for (int i = 1; i < trajectoryPoints.Count; i++)
+			//{
+			//	Cv2.Line(frame, trajectoryPoints[i - 1], trajectoryPoints[i], new Scalar(0, 255, 255), 2);
+			//}
 
 			hsv.Release();
-			objectMask1.Release();
-			objectMask1.Release();
+			//objectMask1.Release();
+			//objectMask1.Release();
 			objectMask.Release();
 
 			return src;
@@ -393,25 +396,6 @@ namespace GameServer
 			}
 		}
 
-		private void pictureBoxGame_Paint(object sender, PaintEventArgs e)
-		{
-			//int penWidth = 4;
-			////// draw middle dashed line
-			////using (Pen pen = new Pen(Color.White, penWidth))
-			////{
-			////    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-			////    e.Graphics.DrawLine(pen, new PointF(pictureBoxCar.Width / 2, 0), new PointF(pictureBoxCar.Width / 2, pictureBoxCar.Height));
-			////}
-
-			//// draw rectangle
-			//Rectangle rect = new Rectangle(0, 0, pictureBoxCar.Width - penWidth, pictureBoxCar.Height - penWidth);
-			//using (Pen pen = new Pen(Color.White, penWidth))
-			//{
-			//	e.Graphics.DrawRectangle(pen, rect);
-			//}
-
-		}
-
 		private void SendMessageToSerial(String message)
 		{
 			try
@@ -428,14 +412,7 @@ namespace GameServer
 				}
 				if (serialPort.IsOpen)
 				{
-					// WRITE THE INCOMING BUFFER TO CONSOLE
-					//while (serialPort.BytesToRead > 0)
-					//{
-					//    Console.Write(Convert.ToChar(serialPort.ReadChar()));
-					//}
-					// SEND
 					serialPort.Write(message);
-					//Thread.Sleep(1000);
 					//serialPort.Close();
 				}
 			}
@@ -452,53 +429,11 @@ namespace GameServer
 			trajectoryPoints.Clear();
 		}
 
-    private void vlcControl1_Click(object sender, EventArgs e)
-    {
-
-    }
-
     private void vlcControl1_VlcLibDirectoryNeeded(object sender, Vlc.DotNet.Forms.VlcLibDirectoryNeededEventArgs e)
     {
 			var vlcLibDirectory = new DirectoryInfo(@"C:\Program Files\VideoLAN\VLC");
-
 			e.VlcLibDirectory = vlcLibDirectory;
-		
-
 		}
-
-    private void vlcControl1_FontChanged(object sender, EventArgs e)
-    {
-
-		}
-
-    private void vlcControl1_EndReached(object sender, Vlc.DotNet.Core.VlcMediaPlayerEndReachedEventArgs e)
-    {
-			// Check if we are on the main UI thread.
-			if (this.InvokeRequired)
-			{
-				// If not, call this method again on the main UI thread.
-				this.Invoke(new Action(() => vlcControl1_EndReached(sender, e)));
-				return;
-			}
-
-      // Get the current media's path (assuming you set it with a FileInfo)
-      // You might need to store the FileInfo in a class-level variable if you don't set it every time.
-      if (vlcControl1.GetCurrentMedia() != null)
-      {
-        // Stop the player (optional, but good practice)
-        vlcControl1.VlcMediaPlayer.Stop();
-
-        //var mediaPath = vlcControl1.GetCurrentMedia().Mrl; // MRL is the Media Resource Locator
-        vlcControl1.VlcMediaPlayer.SetMedia(new Uri(vlcControl1.GetCurrentMedia().Mrl)); // Re-set the media
-        vlcControl1.VlcMediaPlayer.Play(); // Play it again
-      }
-
-    }
-
-    private void vlcControl1_EncounteredError(object sender, Vlc.DotNet.Core.VlcMediaPlayerEncounteredErrorEventArgs e)
-    {
-
-    }
 
     private void vlcControl1_Log(object sender, Vlc.DotNet.Core.VlcMediaPlayerLogEventArgs e)
     {
@@ -511,20 +446,12 @@ namespace GameServer
 
 		}
 
-    private void vlcControl1_Click_1(object sender, EventArgs e)
-    {
-
-    }
-
     private void button1_Click(object sender, EventArgs e)
-		{
-			
+    {
+			SendMessageToSerial("0,1920\r");
+			Thread.Sleep(1000);
+			SendMessageToSerial("1080,0\r");
 
 		}
-
-    private void pictureBox1_Click(object sender, EventArgs e)
-    {
-
-    }
-  }
+	}
 }

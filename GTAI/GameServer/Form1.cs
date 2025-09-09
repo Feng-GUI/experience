@@ -18,7 +18,7 @@ namespace GameServer
   {
     // hard coded
     const int MAP_CAM_USB_INDEX = 2;
-    const int CAR_CAM_USB_INDEX = 1;
+    const int CAR_CAM_USB_INDEX = 3;
     const int SERIALPORT_BAUD_RATE = 9600;
     const string SERIALPORT_PORT_NAME = "COM6";
 
@@ -71,13 +71,14 @@ namespace GameServer
 
     private void CaptureCameraMapCallback()
     {
-      captureMap = new VideoCapture();
+      var videoFile = "C:\\Users\\owner\\Desktop\\GTA\\eye6.mp4";
+      captureMap = new VideoCapture(videoFile);
       //captureMap.Set(VideoCaptureProperties.FrameWidth, 640);
       //captureMap.Set(VideoCaptureProperties.FrameHeight, 480);
-      captureMap.Open(MAP_CAM_USB_INDEX);
+      //captureMap.Open(MAP_CAM_USB_INDEX);
       // reduce frame size to allow 2 camera work on USB bandwith
-      captureMap.FrameWidth = 640;//1920;
-      captureMap.FrameHeight = 480;//1080;
+      //captureMap.FrameWidth = 640;//1920;
+      //captureMap.FrameHeight = 480;//1080;
 
       frameOrig = new Mat();
       frame = new Mat();
@@ -182,13 +183,15 @@ namespace GameServer
     {
       try
       {
-        captureCar = new VideoCapture();
+        var videoFile = "C:\\Users\\owner\\Desktop\\GTA\\eye6-car.mp4";
+
+        captureCar = new VideoCapture(videoFile);
         //captureMap.Set(VideoCaptureProperties.FrameWidth, 640);
         //captureMap.Set(VideoCaptureProperties.FrameHeight, 480);
-        captureCar.Open(CAR_CAM_USB_INDEX);
+        //captureCar.Open(CAR_CAM_USB_INDEX);
         // reduce frame size to allow 2 camera work on USB bandwith
-        captureCar.FrameWidth = 1920;
-        captureCar.FrameHeight = 1080;
+        //captureCar.FrameWidth = 640;//1920;
+        //captureCar.FrameHeight = 480;//1080;
 
         Mat frame = new Mat();
 
@@ -577,7 +580,6 @@ namespace GameServer
 
       base.OnPaint(e);
       var rect = new Rectangle(0, 0, pictureBoxMap.Width - 1, pictureBoxMap.Height - 1);
-
 
       using (var gp = new GraphicsPath())
       {

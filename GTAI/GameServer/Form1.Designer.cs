@@ -135,10 +135,10 @@
       // 
       this.pictureBoxMap.BackColor = System.Drawing.Color.Gray;
       this.pictureBoxMap.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-      this.pictureBoxMap.Location = new System.Drawing.Point(52, 631);
+      this.pictureBoxMap.Location = new System.Drawing.Point(29, 588);
       this.pictureBoxMap.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
       this.pictureBoxMap.Name = "pictureBoxMap";
-      this.pictureBoxMap.Size = new System.Drawing.Size(221, 227);
+      this.pictureBoxMap.Size = new System.Drawing.Size(300, 300);
       this.pictureBoxMap.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
       this.pictureBoxMap.TabIndex = 0;
       this.pictureBoxMap.TabStop = false;

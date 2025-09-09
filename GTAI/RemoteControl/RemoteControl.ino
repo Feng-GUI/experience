@@ -92,13 +92,13 @@ void setup() {
 //  digitalWrite(forwardsPin, LOW);
 
   allOff();
-  eight();
+  //eight();
   Serial.begin(115200);
 
 }
 
 void loop() {
-  eight();
+
   if (Serial.available() > 0) {
     delay(10);
     incomingByte = Serial.parseInt();//Serial.read());
