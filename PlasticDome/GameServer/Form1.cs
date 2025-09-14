@@ -21,7 +21,19 @@ namespace GameServer
 	public partial class Form1 : Form
 	{
 		const int SERIALPORT_BAUD_RATE = 9600;
-		const string SERIALPORT_PORT_NAME = "COM6";
+		const string SERIALPORT_PORT_NAME = "COM3";//"COM6";
+
+		// delay between servo actions
+		const int DELAY_BETWEEN_ACTIONS = 100;
+
+		// kalman - look a few frames into the future
+		const float KALMAN_FUTURE_FRAMES = 10;
+
+		const string VLC_DIRECTORY_PATH = @"C:\Program Files\VideoLAN\VLC";
+		const string videoPath = @"C:\projects\src\experience\PlasticDome\GameServer\Sonar-1.mp4";
+
+		// 0 armed. 180 fire
+		int fireServo = 0;
 
 		VideoCapture captureMap;
 		Mat frame;
@@ -44,7 +56,7 @@ namespace GameServer
 
 		// prevent from flooding the serial. minimum time to wait between each serial command
 		Stopwatch stopwatch = new Stopwatch();
-		TimeSpan minimumInterval = TimeSpan.FromMilliseconds(500);
+		TimeSpan minimumInterval = TimeSpan.FromMilliseconds(DELAY_BETWEEN_ACTIONS);
 
 		public Form1()
 		{
@@ -58,26 +70,24 @@ namespace GameServer
 		{
 			try
 			{
+				// camera
 				// Initialize Kalman filter (stateSize = 4, measurementSize = 2)
 				kalman = new KalmanFilter(4, 2);
 				InitKalman();
+				stopwatch.Start();
+				CaptureCamera();
 
-				string videoPath = @"C:\projects\PlasticDome\Sonar-1.mp4";
+				// play the sonar video in repeat
 				Uri videoUri = new Uri(videoPath);
-
-				// Create a new VlcMedia object with the '--loop' option
-				var mediaOptions = new string[] { "input-repeat=1000000", "loop" };
-
+				var mediaOptions = new string[] {"input-repeat=10000"};
 				vlcControl1.SetMedia(new Uri(videoPath), mediaOptions);
 				vlcControl1.Play();
 
-				stopwatch.Start();
-				CaptureCamera();
 			}
 			catch (Exception ex)
 			{
 				Console.WriteLine("Exception: {0}", ex);
-				lblError.Text = ex.Message;
+				SafeSetLabelText(ex.Message);
 			}
 		}
 
@@ -122,12 +132,11 @@ namespace GameServer
 
 				//exit application
 				//Environment.Exit(0);
-
 			}
 			catch (Exception ex)
 			{
 				Console.WriteLine("Exception: {0}", ex);
-				//lblError.Text = e.Message;
+				SafeSetLabelText(ex.Message);
 			}
 
 		}
@@ -149,10 +158,10 @@ namespace GameServer
 			captureMap = new VideoCapture();
 			string myCameraName = "Lenovo FHD Webcam";
 			int cameraIndex = GetCameraIndexByName(myCameraName);
-			// --- Set the desired resolution BEFORE opening the camera ---
+			// Set desired resolution BEFORE opening the camera
 			captureMap.Set(VideoCaptureProperties.FrameWidth, 1920); // Set to FHD width
 			captureMap.Set(VideoCaptureProperties.FrameHeight, 1080); // Set to FHD height
-			captureMap.Open(cameraIndex);
+			captureMap.Open(0);//cameraIndex
 
 			frame = new Mat();
 
@@ -197,8 +206,6 @@ namespace GameServer
 						image = BitmapConverter.ToBitmap(frame);
 						pictureBoxMap.Image = image;
 					}
-				
-
 
 			}
 		}
@@ -268,33 +275,34 @@ namespace GameServer
 			Mat hsv = new Mat();
 			Cv2.CvtColor(src, hsv, ColorConversionCodes.BGR2HSV);
 
-/*
-						// find the Red object in the HSV color space
-						// define the lower and upper boundaries
-						// red in HSV is around 0-10 and 170-179 so 2 masks are needed
+			/*
+			 * find red object
+				// find the Red object in the HSV color space
+				// define the lower and upper boundaries
+				// red in HSV is around 0-10 and 170-179 so 2 masks are needed
 
-						// lower mask (0-10)
-						Scalar redLower1 = new Scalar(0, 150, 150);
-						Scalar redUpper1 = new Scalar(10, 255, 255);
-						Mat objectMask1 = new Mat();
-						Cv2.InRange(hsv, redLower1, redUpper1, objectMask1);
+				// lower mask (0-10)
+				Scalar redLower1 = new Scalar(0, 150, 150);
+				Scalar redUpper1 = new Scalar(10, 255, 255);
+				Mat objectMask1 = new Mat();
+				Cv2.InRange(hsv, redLower1, redUpper1, objectMask1);
 
-						// lower mask (0-10)
-						Scalar redLower2 = new Scalar(170, 150, 150);
-						Scalar redUpper2 = new Scalar(180, 255, 255);
-						Mat objectMask2 = new Mat();
-						Cv2.InRange(hsv, redLower2, redUpper2, objectMask2);
+				// lower mask (0-10)
+				Scalar redLower2 = new Scalar(170, 150, 150);
+				Scalar redUpper2 = new Scalar(180, 255, 255);
+				Mat objectMask2 = new Mat();
+				Cv2.InRange(hsv, redLower2, redUpper2, objectMask2);
 
-						// join the masks
-						Mat objectMask = objectMask1 + objectMask2;
+				// join the masks
+				Mat objectMask = objectMask1 + objectMask2;
 			*/
+
+			// find yellow object
 			// Define the HSV range for yellow
-			// You only need one range for yellow, as its hue does not wrap around the 180-degree scale.
 			Scalar yellowLower = new Scalar(20, 100, 100);
 			Scalar yellowUpper = new Scalar(40, 255, 255);
 			Mat objectMask = new Mat();
 			Cv2.InRange(hsv, yellowLower, yellowUpper, objectMask);
-
 
 			OpenCvSharp.Point[][] contours;
 			HierarchyIndex[] hierarchyIndexes; //vector<Vec4i> hierarchy;
@@ -348,9 +356,8 @@ namespace GameServer
 				// Draw actual position (green)
 				Cv2.Circle(frame, measured, 10, observedColor, -1);
 
-				// look few frames into the future
-				float dt = 10;
-				FutureTransitionMatrix(dt);
+				// look a few frames into the future
+				FutureTransitionMatrix(KALMAN_FUTURE_FRAMES);
 				// Predict next state
 				Mat prediction = kalman.Predict();
 				OpenCvSharp.Point predictedPoint = new OpenCvSharp.Point(prediction.At<float>(0), prediction.At<float>(1));
@@ -362,7 +369,7 @@ namespace GameServer
 				{
 					stopwatch.Restart();
 
-					SendMessageToSerial(predictedPoint.X.ToString() + "," + predictedPoint.Y.ToString() + "\r");
+					SendMessageToSerial(predictedPoint.X.ToString() + "," + predictedPoint.Y.ToString() + "," + fireServo.ToString() + "\r");
 				}
 
 			}
@@ -392,7 +399,7 @@ namespace GameServer
 			catch (Exception ex)
 			{
 				Console.WriteLine("Exception: {0}", ex);
-				lblError.Text = ex.Message;
+				SafeSetLabelText(ex.Message);
 			}
 		}
 
@@ -400,7 +407,7 @@ namespace GameServer
 		{
 			try
 			{
-
+				// connect to serial
 				if (serialPort == null)
 				{
 					serialPort = new SerialPort();
@@ -416,13 +423,31 @@ namespace GameServer
 					//serialPort.Close();
 				}
 			}
-			catch (Exception e)
+			catch (Exception ex)
 			{
-				Console.WriteLine("Exception: {0}", e);
-				lblError.Text = e.Message;
+				Console.WriteLine("Exception: {0}", ex);
+				SafeSetLabelText(ex.Message);
 			}
 
 		}
+
+		public void SafeSetLabelText(string text)
+		{
+				if (lblError.InvokeRequired)
+				{
+						// If not on the UI thread, invoke the method on the UI thread
+						lblError.Invoke((MethodInvoker)delegate
+						{
+								lblError.Text = text;
+						});
+				}
+				else
+				{
+						// If already on the UI thread, set the text directly
+						lblError.Text = text;
+				}
+		}
+
 
 		private void button2_Click_2(object sender, EventArgs e)
 		{
@@ -431,7 +456,7 @@ namespace GameServer
 
     private void vlcControl1_VlcLibDirectoryNeeded(object sender, Vlc.DotNet.Forms.VlcLibDirectoryNeededEventArgs e)
     {
-			var vlcLibDirectory = new DirectoryInfo(@"C:\Program Files\VideoLAN\VLC");
+			var vlcLibDirectory = new DirectoryInfo(VLC_DIRECTORY_PATH);
 			e.VlcLibDirectory = vlcLibDirectory;
 		}
 
@@ -443,15 +468,21 @@ namespace GameServer
 			// e.Module is the component that logged the message
 
 			//Console.WriteLine($"VLC Log [{e.Level}]: {e.Message} (Module: {e.Module})");
-
 		}
 
     private void button1_Click(object sender, EventArgs e)
     {
-			SendMessageToSerial("0,1920\r");
+			SendMessageToSerial("0,1920,0\r");
 			Thread.Sleep(1000);
-			SendMessageToSerial("1080,0\r");
+			SendMessageToSerial("1080,0,180\r");
+			Thread.Sleep(1000);
+			SendMessageToSerial(1080/2  + "," + 1920/2 + ",180\r");
+			fireServo = 180;
+		}
 
+		private void button3_Click(object sender, EventArgs e)
+		{
+			fireServo = 180;
 		}
 	}
 }
